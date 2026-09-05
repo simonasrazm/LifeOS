@@ -20,7 +20,7 @@
 
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { isAbsolute, resolve, join } from "node:path";
-import { evaluateWrite } from "../../hooks/lib/system-file-guard-core";
+import { evaluateWrite } from "./lib/system-file-guard-core";
 
 function usage(code = 2): never {
   console.log(

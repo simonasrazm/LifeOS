@@ -32,10 +32,10 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  */
 
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, appendFileSync } from "fs";
-import { getDAName } from "../../hooks/lib/identity"
+import { getDAName } from "./lib/identity"
 
 import { join } from "path";
-import { loadWorkConfig } from "../../hooks/lib/work-config";
+import { loadWorkConfig } from "./lib/work-config";
 import { phaseHasWorkStarted } from "./ascent";
 import { homedir } from "node:os";
 

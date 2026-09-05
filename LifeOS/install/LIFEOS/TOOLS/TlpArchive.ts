@@ -15,7 +15,7 @@
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { getPrincipalName } from "../../hooks/lib/identity";
+import { getPrincipalName } from "./lib/identity";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const KNOWLEDGE_DIR = join(HOME, ".claude/LIFEOS/MEMORY/KNOWLEDGE/Blogs");

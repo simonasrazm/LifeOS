@@ -27,7 +27,7 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { readTelosFreshness, readStateFreshness, sectionSlug, legacyTelosFilePath, daysBetween, type SectionFreshness } from "./TelosFreshness";
 import { homedir } from "node:os";
-import { getDAName } from "../../hooks/lib/identity";
+import { getDAName } from "./lib/identity";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {

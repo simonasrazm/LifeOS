@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,6 +15,21 @@ describe("InstallCodex native adapter", () => {
   test("install payload mirrors the canonical installer exactly", () => {
     expect(readFileSync(join(import.meta.dir, "../install/skills/LifeOS/Tools/InstallCodex.ts"), "utf-8"))
       .toBe(readFileSync(join(import.meta.dir, "InstallCodex.ts"), "utf-8"));
+  });
+
+  test("shared core tools do not import harness-owned hook libraries", () => {
+    const toolsRoot = join(import.meta.dir, "../install/LIFEOS/TOOLS");
+    const sources = readdirSync(toolsRoot)
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => readFileSync(join(toolsRoot, name), "utf-8"))
+      .join("\n");
+    expect(sources).not.toContain("../../hooks/lib/");
+    for (const dependency of [
+      "containment-zones.ts", "identity.ts", "isa-utils.ts", "learning-utils.ts",
+      "paths.ts", "system-file-guard-core.ts", "work-config.ts", "work-events.ts",
+    ]) {
+      expect(existsSync(join(toolsRoot, "lib", dependency))).toBe(true);
+    }
   });
 
   test("adds missing USER schema to a populated external tree without overwriting it", () => {
@@ -47,8 +62,10 @@ describe("InstallCodex native adapter", () => {
 
       const installedHook = join(configRoot, "hooks", "LoadContext.hook.ts");
       const installedSystemPrompt = join(configRoot, "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md");
+      const installedTranscriptParser = join(configRoot, "LIFEOS", "TOOLS", "TranscriptParser.ts");
       writeFileSync(installedHook, "stale adapter hook\n");
       writeFileSync(installedSystemPrompt, "stale system prompt\n");
+      writeFileSync(installedTranscriptParser, "stale runtime tool\n");
       writeFileSync(join(configRoot, "hooks", "Custom.hook.ts"), "principal-owned\n");
       const reinstall = Bun.spawnSync([
         "bun", join(import.meta.dir, "InstallCodex.ts"),
@@ -64,6 +81,9 @@ describe("InstallCodex native adapter", () => {
       );
       expect(readFileSync(installedSystemPrompt, "utf-8")).toBe(
         readFileSync(join(import.meta.dir, "../install/LIFEOS/LIFEOS_SYSTEM_PROMPT.md"), "utf-8"),
+      );
+      expect(readFileSync(installedTranscriptParser, "utf-8")).toBe(
+        readFileSync(join(import.meta.dir, "../install/LIFEOS/TOOLS/TranscriptParser.ts"), "utf-8"),
       );
       expect(readFileSync(join(configRoot, "hooks", "Custom.hook.ts"), "utf-8")).toBe("principal-owned\n");
     } finally {
@@ -96,6 +116,16 @@ describe("InstallCodex native adapter", () => {
       const manifest = JSON.parse(readFileSync(join(configRoot, ".pai-adapter.json"), "utf-8"));
       expect(manifest.paiDir).toBe(lifeosDir);
       expect(manifest.lifeosVersion).toBe("7.40.4");
+      const coreImport = Bun.spawnSync([
+        "bun", "-e",
+        `const m = await import(${JSON.stringify(join(lifeosDir, "TOOLS", "TranscriptParser.ts"))}); if (typeof m.parseTranscript !== "function") process.exit(1);`,
+      ], {
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { ...process.env, LIFEOS_DIR: lifeosDir, LIFEOS_CONFIG_DIR: configDir },
+      });
+      if (coreImport.exitCode !== 0) console.error(coreImport.stderr.toString());
+      expect(coreImport.exitCode).toBe(0);
       expect(existsSync(join(root, ".claude"))).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });

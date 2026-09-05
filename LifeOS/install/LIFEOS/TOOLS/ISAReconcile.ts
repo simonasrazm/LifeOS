@@ -33,7 +33,7 @@ import {
   syncToWorkJson,
   readRegistry,
   WORK_DIR,
-} from "../../hooks/lib/isa-utils";
+} from "./lib/isa-utils";
 
 const args = process.argv.slice(2);
 const fix = args.includes("--fix");

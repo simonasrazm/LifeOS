@@ -22,7 +22,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
-import { getDAName } from "../../hooks/lib/identity"
+import { getDAName } from "./lib/identity"
 
 const ROOT = pathResolve(homedir(), ".claude");
 const OBS = pathResolve(ROOT, "LIFEOS/MEMORY/OBSERVABILITY");

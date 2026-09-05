@@ -13,7 +13,7 @@
  */
 
 import { join } from "path"
-import { getDAName } from "../../hooks/lib/identity"
+import { getDAName } from "./lib/identity"
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()

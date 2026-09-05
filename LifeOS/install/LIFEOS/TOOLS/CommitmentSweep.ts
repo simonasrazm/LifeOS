@@ -29,7 +29,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 import { existsSync, mkdirSync, appendFileSync } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
-import { loadWorkConfig } from "../../hooks/lib/work-config";
+import { loadWorkConfig } from "./lib/work-config";
 import { PULSE_BASE } from "../PULSE/endpoint";
 import { homedir } from "node:os";
 

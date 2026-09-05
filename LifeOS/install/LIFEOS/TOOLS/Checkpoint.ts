@@ -15,7 +15,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { parseCriteriaList } from '../../hooks/lib/isa-utils';
+import { parseCriteriaList } from './lib/isa-utils';
 
 // Allowlist path: top of ~/.claude per spec. We only READ it (never write),
 // so the ContainmentGuard write restriction does not apply. Parser must match

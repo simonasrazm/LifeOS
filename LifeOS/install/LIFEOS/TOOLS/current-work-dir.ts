@@ -35,7 +35,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { dirname } from 'path';
-import { paiPath } from '../../hooks/lib/paths';
+import { paiPath } from './lib/paths';
 
 interface SessionEntry {
   isa?: string;

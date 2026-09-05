@@ -39,7 +39,7 @@ import { homedir } from "node:os";
 // Registry access goes through the isa-utils choke point (2026-06-10) — the
 // event-sourced write path. This file previously carried a duplicate
 // tmp+rename implementation; that was the one writer outside writeRegistry.
-import { readRegistry, writeRegistry } from "../../hooks/lib/isa-utils";
+import { readRegistry, writeRegistry } from "./lib/isa-utils";
 
 const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
 const SESSION_NAMES_JSON = pathJoin(CLAUDE_ROOT, "LIFEOS/MEMORY/STATE/session-names.json");

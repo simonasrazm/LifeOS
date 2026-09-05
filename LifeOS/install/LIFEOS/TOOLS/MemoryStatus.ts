@@ -23,7 +23,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { getDAName } from "../../hooks/lib/identity"
+import { getDAName } from "./lib/identity"
 
 import { join as pathJoin, resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";

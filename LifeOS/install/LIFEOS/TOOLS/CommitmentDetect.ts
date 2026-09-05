@@ -20,7 +20,7 @@
  */
 
 import { inference } from "./Inference";
-import { getPrincipalName } from "../../hooks/lib/identity";
+import { getPrincipalName } from "./lib/identity";
 
 // Principal name resolved at runtime, never a literal: a hardcoded name ships
 // as an unsubstituted {{PRINCIPAL_FULL_NAME}} placeholder in the public

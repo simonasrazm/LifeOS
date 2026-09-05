@@ -36,7 +36,7 @@
 // public issue #1747, @umair-a11y — isAbsolute()/sep instead of hardcoded "/"
 import { resolve as pathResolve, isAbsolute, sep } from "node:path";
 import { homedir } from "node:os";
-import { getPrincipalName } from "../../hooks/lib/identity";
+import { getPrincipalName } from "./lib/identity";
 
 // ── Constants ──
 

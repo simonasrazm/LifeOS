@@ -46,7 +46,7 @@ import { add as memoryAdd, sanitizeTypedItemForPersistence, type AddResult } fro
 import { read as memoryWriterRead } from "./MemoryWriter";
 import { isKnownType, inferProposalKind, pinProposalTargetFile, type TypedItem } from "./MemoryTypes";
 import { inference } from "./Inference";
-import { getPrincipalName, getDAName } from "../../hooks/lib/identity";
+import { getPrincipalName, getDAName } from "./lib/identity";
 import { ingestCaptureEnvelope, stripPrivateContent, type CaptureEnvelope } from "./CaptureEnvelope";
 import {
   applyProposalEdit,

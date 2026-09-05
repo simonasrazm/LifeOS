@@ -17,7 +17,7 @@
  */
 
 import { spawnSync } from "child_process";
-import { loadWorkConfig } from "../../hooks/lib/work-config";
+import { loadWorkConfig } from "./lib/work-config";
 
 interface Args {
   beneficiary: string;

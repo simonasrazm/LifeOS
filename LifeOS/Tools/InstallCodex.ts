@@ -15,6 +15,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   symlinkSync,
   writeFileSync,
@@ -28,6 +29,7 @@ const MANAGED_START = "<!-- LifeOS managed: start -->";
 const MANAGED_END = "<!-- LifeOS managed: end -->";
 const LEGACY_PAI_START = "<!-- PAI managed instructions: start -->";
 const LEGACY_PAI_END = "<!-- PAI managed instructions: end -->";
+const RUNTIME_STATE = new Set(["USER", "MEMORY", "node_modules", ".git"]);
 
 const SUPPORTED_EVENTS = new Set([
   "PreToolUse",
@@ -308,6 +310,20 @@ function runTool(tool: string, args: string[]): unknown {
   return stdout ? JSON.parse(stdout) : {};
 }
 
+function overlayRuntime(skillRoot: string, lifeosDir: string): number {
+  const sourceRoot = join(skillRoot, "install", "LIFEOS");
+  let overlaid = 0;
+  for (const entry of readdirSync(sourceRoot, { withFileTypes: true })) {
+    if (RUNTIME_STATE.has(entry.name)) continue;
+    cpSync(join(sourceRoot, entry.name), join(lifeosDir, entry.name), {
+      recursive: true,
+      force: true,
+    });
+    overlaid++;
+  }
+  return overlaid;
+}
+
 function prepareLifeosLink(configRoot: string, lifeosDir: string, apply: boolean): { action: string; adapterPath: string; target: string } {
   const adapterPath = join(configRoot, "LIFEOS");
   const normalizedAdapter = resolve(adapterPath);
@@ -399,16 +415,16 @@ function main(): void {
   if (args.allowDev) common.push("--allow-dev");
   report.deployCore = runTool(join(import.meta.dir, "DeployCore.ts"), common);
 
+  // Runtime code and doctrine are release-owned. DeployCore creates missing
+  // files; this overlay makes upgrades real while USER, MEMORY, and installed
+  // dependencies remain untouched in the neutral root.
+  report.runtimeEntriesOverlayApplied = overlayRuntime(args.skillRoot, args.lifeosDir);
+
   // ScaffoldUser is additive: copyMissing never overwrites existing USER data.
   // Always run it so an older populated USER tree receives newly-required
   // schema paths during upgrades instead of remaining permanently incomplete.
   report.scaffoldUser = runTool(join(import.meta.dir, "ScaffoldUser.ts"), [...common, "--config-dir", args.configDir]);
   report.linkUser = runTool(join(import.meta.dir, "LinkUser.ts"), ["--config-root", args.configRoot, "--config-dir", args.configDir, "--apply", ...(args.allowDev ? ["--allow-dev"] : [])]);
-
-  // The system prompt is installer-owned doctrine. DeployCore is deliberately
-  // additive for runtime state, so overlay this file explicitly on upgrades.
-  copyFileSync(systemPromptSource, join(args.configRoot, "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md"));
-  report.systemPromptUpdated = true;
 
   // Hook sources are adapter-owned payload, not user state. Overlay them so an
   // upgrade actually activates fixes while leaving non-payload custom files.

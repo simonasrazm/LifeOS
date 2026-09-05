@@ -37,7 +37,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import { homedir } from "node:os";
-import { getPrincipalName } from "../../hooks/lib/identity";
+import { getPrincipalName } from "./lib/identity";
 import {
   FRUSTRATION_PATTERNS, SUCCESS_PATTERNS,
   collectObservabilityClusters, readPatchRegistry,

@@ -30,7 +30,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSy
 import { join, basename, dirname, extname } from "path";
 import { randomUUID } from "crypto";
 import { homedir } from "node:os";
-import { getDAName, getPrincipalName } from "../../hooks/lib/identity";
+import { getDAName, getPrincipalName } from "./lib/identity";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {

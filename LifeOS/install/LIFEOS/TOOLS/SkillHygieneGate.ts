@@ -25,7 +25,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { PATTERN_ALLOWLIST_FILES } from "../../hooks/lib/containment-zones";
+import { PATTERN_ALLOWLIST_FILES } from "./lib/containment-zones";
 
 const args = process.argv.slice(2);
 const jsonOutput = args.includes("--json");

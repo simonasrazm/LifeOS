@@ -106,11 +106,10 @@ function error(message: string): never {
   process.exit(1);
 }
 
-// A Core-only install declines the hooks tree, so ../../hooks/lib/identity may
-// not exist on disk. Resolve it lazily and fall back to a nameless, voiceless
-// identity when it is absent (public issue #1694, @dissembler21-png). With the
-// hooks tree present this resolves exactly as the former static import did.
-type IdentityModule = typeof import("../../hooks/lib/identity");
+// Identity is a core dependency, so it lives beside the tools instead of under
+// a harness-owned hooks directory. Resolve it lazily so partial/core-only
+// payloads still fall back to a nameless, voiceless identity.
+type IdentityModule = typeof import("./lib/identity");
 type Identity = ReturnType<IdentityModule["getIdentity"]>;
 
 const FALLBACK_IDENTITY: Identity = {
@@ -126,7 +125,7 @@ let identityModule: IdentityModule | null | undefined;
 async function loadIdentityModule(): Promise<IdentityModule | null> {
   if (identityModule === undefined) {
     try {
-      identityModule = await import("../../hooks/lib/identity");
+      identityModule = await import("./lib/identity");
     } catch {
       identityModule = null;
     }

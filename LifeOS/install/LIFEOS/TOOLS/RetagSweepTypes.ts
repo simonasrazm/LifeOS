@@ -13,7 +13,7 @@
  * Dry-run by default. `--apply` mutates via `gh issue edit`.
  */
 import { classifyType } from "./WorkSweep";
-import { loadWorkConfig } from "../../hooks/lib/work-config";
+import { loadWorkConfig } from "./lib/work-config";
 
 const APPLY = process.argv.includes("--apply");
 

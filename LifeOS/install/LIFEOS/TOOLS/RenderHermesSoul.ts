@@ -32,7 +32,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { getDAName, getIdentity, getPrincipalName } from "../../hooks/lib/identity";
+import { getDAName, getIdentity, getPrincipalName } from "./lib/identity";
 
 const HOME = homedir();
 const HERMES_HOME = process.env.HERMES_HOME || join(HOME, ".hermes");

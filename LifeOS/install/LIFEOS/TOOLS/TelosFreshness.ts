@@ -30,7 +30,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  */
 
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from "fs";
-import { getDAName } from "../../hooks/lib/identity"
+import { getDAName } from "./lib/identity"
 
 import { basename, join } from "path";
 import { homedir } from "node:os";
