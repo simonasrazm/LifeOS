@@ -65,8 +65,8 @@ export function resolveCodexBin(): string {
 }
 
 export function buildCodexInferenceArgs(options: InferenceOptions): string[] {
-  const model = process.env.LIFEOS_CODEX_MODEL || 'gpt-5.5';
-  const reasoningEffort = process.env.LIFEOS_CODEX_REASONING_EFFORT || 'xhigh';
+  const model = process.env.LIFEOS_CODEX_MODEL;
+  const reasoningEffort = process.env.LIFEOS_CODEX_REASONING_EFFORT;
   return [
     "exec",
     "--ephemeral",
@@ -74,8 +74,8 @@ export function buildCodexInferenceArgs(options: InferenceOptions): string[] {
     "--skip-git-repo-check",
     "--sandbox", "read-only",
     "--color", "never",
-    "--model", model,
-    "--config", `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`,
+    ...(model ? ["--model", model] : []),
+    ...(reasoningEffort ? ["--config", `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`] : []),
     ...(options.systemPrompt ? ["--config", `developer_instructions=${JSON.stringify(options.systemPrompt)}`] : []),
     ...(options.imagePaths?.flatMap((path) => ["--image", path]) ?? []),
     "-",

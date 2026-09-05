@@ -73,11 +73,21 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+function wrapCodexCommand(command: string): string {
+  const script = [
+    'export PAI_HARNESS=codex',
+    'export LIFEOS_DIR="$CODEX_HOME/LIFEOS"',
+    'export CLAUDE_PLUGIN_ROOT="$CODEX_HOME"',
+    command,
+  ].join('; ');
+  return `bash -lc ${shellQuote(script)}`;
+}
+
 export function rewriteCodexPath(value: string): string {
   return value
-    .replace(/\$HOME\/\.claude(?=\/|$)/g, "$HOME/.codex")
-    .replace(/\$\{HOME\}\/\.claude(?=\/|$)/g, "$HOME/.codex")
-    .replace(/~\/\.claude(?=\/|$)/g, "$HOME/.codex");
+    .replace(/\$HOME\/\.claude(?=\/|$)/g, "$CODEX_HOME")
+    .replace(/\$\{HOME\}\/\.claude(?=\/|$)/g, "$CODEX_HOME")
+    .replace(/~\/\.claude(?=\/|$)/g, "$CODEX_HOME");
 }
 
 function mapMatcher(matcher: string | undefined): string | undefined {
@@ -101,7 +111,7 @@ function convertHook(hook: CodexHook): CodexHook | undefined {
     return converted;
   }
   if ((hook.type === undefined || hook.type === "command") && typeof hook.command === "string") {
-    return { ...hook, type: "command", command: rewriteCodexPath(hook.command) };
+    return { ...hook, type: "command", command: wrapCodexCommand(rewriteCodexPath(hook.command)) };
   }
   if (hook.type === "mcp_tool") return { ...hook };
   return undefined;

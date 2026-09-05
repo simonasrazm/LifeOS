@@ -3,10 +3,10 @@ import { describe, expect, test } from "bun:test";
 import { buildPulseCodexArgs } from "../install/LIFEOS/PULSE/codex";
 
 describe("Pulse Codex invocation", () => {
-  test("pins Sami's default background model and reasoning effort", () => {
+  test("keeps generic background policy neutral by default", () => {
     const args = buildPulseCodexArgs({});
-    expect(args).toContain("gpt-5.5");
-    expect(args).toContain('model_reasoning_effort="xhigh"');
+    expect(args).not.toContain("--model");
+    expect(args).not.toContain("model_reasoning_effort");
     expect(args.at(-1)).toBe("-");
   });
 

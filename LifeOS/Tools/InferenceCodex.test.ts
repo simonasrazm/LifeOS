@@ -15,10 +15,26 @@ describe("Inference Codex invocation", () => {
       "--color",
     ]);
     expect(args).toContain("developer_instructions=\"system\"");
-    expect(args).toContain("gpt-5.5");
-    expect(args).toContain('model_reasoning_effort="xhigh"');
+    expect(args).not.toContain("--model");
     expect(args.at(-1)).toBe("-");
     expect(args).not.toContain("claude");
+  });
+
+  test("accepts background policy from the integration environment", () => {
+    const previousModel = process.env.LIFEOS_CODEX_MODEL;
+    const previousEffort = process.env.LIFEOS_CODEX_REASONING_EFFORT;
+    process.env.LIFEOS_CODEX_MODEL = "integration-model";
+    process.env.LIFEOS_CODEX_REASONING_EFFORT = "high";
+    try {
+      const args = buildCodexInferenceArgs({ systemPrompt: "system", userPrompt: "user" });
+      expect(args).toContain("integration-model");
+      expect(args).toContain('model_reasoning_effort="high"');
+    } finally {
+      if (previousModel === undefined) delete process.env.LIFEOS_CODEX_MODEL;
+      else process.env.LIFEOS_CODEX_MODEL = previousModel;
+      if (previousEffort === undefined) delete process.env.LIFEOS_CODEX_REASONING_EFFORT;
+      else process.env.LIFEOS_CODEX_REASONING_EFFORT = previousEffort;
+    }
   });
 
   test("recognizes and resolves a nonstandard Codex home", () => {
