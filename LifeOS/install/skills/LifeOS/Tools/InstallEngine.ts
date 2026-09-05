@@ -5,7 +5,7 @@
  * from the now-retired pre-6.x GUI installer engine (detect logic + types):
  * no web/electron wizard, no separate types module, plus
  * the bare-skill extras the wizard never needed — harness detection (the skill
- * installs into Claude Code / Hermes / Cursor / OpenClaw) and dev-tree refusal
+ * installs into supported agent harnesses) and dev-tree refusal
  * (never mutate the author's source repo).
  *
  * All detection here is READ-ONLY and non-destructive. The 7 setup Tools import
@@ -34,7 +34,7 @@ export interface ToolInfo {
   path?: string;
 }
 
-export type Harness = "claude-code" | "opencode" | "hermes" | "cursor" | "openclaw" | "unknown";
+export type Harness = "claude-code" | "codex" | "opencode" | "hermes" | "cursor" | "openclaw" | "unknown";
 
 export interface HarnessInfo {
   name: Harness;
@@ -120,20 +120,24 @@ export function detectTool(name: string, versionCmd: string): ToolInfo {
 
 /**
  * Detect which harness is hosting this install and where it loads skills from.
- * Signal strength (#1448): config dir + harness binary on PATH beats config dir
- * alone beats binary alone — a leftover ~/.claude dir on a machine without the
- * claude CLI must not out-rank a live OpenCode install. Anything short of a
- * binary match is reported as confidence "assumed", never as fact.
+ * Signal strength (#1448): config dir + harness binary on PATH beats binary
+ * alone beats config dir alone — a leftover ~/.claude dir on a machine without
+ * the claude CLI must not out-rank a live OpenCode or Codex install. Anything
+ * short of a binary match is reported as confidence "assumed", never as fact.
  */
-export function detectHarness(home: string): HarnessInfo {
+export function detectHarness(
+  home: string,
+  binaryProbe: (binary: string) => boolean = (binary) => !!tryExec(`command -v ${binary}`),
+): HarnessInfo {
   const candidates: Array<{ name: Harness; root: string; skills: string; bin: string }> = [
     { name: "claude-code", root: process.env.CLAUDE_CONFIG_DIR || join(home, ".claude"), skills: "skills", bin: "claude" },
+    { name: "codex", root: process.env.CODEX_HOME || join(home, ".codex"), skills: "skills", bin: "codex" },
     { name: "opencode", root: process.env.OPENCODE_CONFIG_DIR || join(home, ".config", "opencode"), skills: "skills", bin: "opencode" },
     { name: "hermes", root: join(home, ".hermes"), skills: "skills", bin: "hermes" },
     { name: "cursor", root: join(home, ".cursor"), skills: "skills", bin: "cursor" },
     { name: "openclaw", root: join(home, ".openclaw"), skills: "skills", bin: "openclaw" },
   ];
-  const hasBin = (c: (typeof candidates)[number]) => !!tryExec(`command -v ${c.bin}`);
+  const hasBin = (c: (typeof candidates)[number]) => binaryProbe(c.bin);
   const info = (c: (typeof candidates)[number], confidence: HarnessInfo["confidence"]): HarnessInfo => ({
     name: c.name,
     configRoot: c.root,
@@ -144,10 +148,10 @@ export function detectHarness(home: string): HarnessInfo {
     if (existsSync(c.root) && hasBin(c)) return info(c, "detected");
   }
   for (const c of candidates) {
-    if (existsSync(c.root)) return info(c, "assumed");
+    if (hasBin(c)) return info(c, "detected");
   }
   for (const c of candidates) {
-    if (hasBin(c)) return info(c, "detected");
+    if (existsSync(c.root)) return info(c, "assumed");
   }
   // Default assumption when nothing is present yet (a clean machine pre-bootstrap).
   return { name: "claude-code", configRoot: join(home, ".claude"), skillsDir: join(home, ".claude", "skills"), confidence: "assumed" };
