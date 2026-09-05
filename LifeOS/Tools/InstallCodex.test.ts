@@ -1,12 +1,19 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   codexHooksFromLifeOS,
+  mergeCodexHooksDocument,
   mergeManagedAgentsBlock,
   rewriteCodexPath,
 } from "./InstallCodex";
 
 describe("InstallCodex native adapter", () => {
+  test("install payload mirrors the canonical installer exactly", () => {
+    expect(readFileSync(join(import.meta.dir, "../install/skills/LifeOS/Tools/InstallCodex.ts"), "utf-8"))
+      .toBe(readFileSync(join(import.meta.dir, "InstallCodex.ts"), "utf-8"));
+  });
   test("maps supported events and reports unsupported events", () => {
     const source = {
       SessionStart: [{ hooks: [{ type: "command", command: "$HOME/.claude/hooks/LoadContext.hook.ts" }] }],
@@ -57,5 +64,19 @@ describe("InstallCodex native adapter", () => {
       "$HOME/.codex/hooks/A.ts $HOME/.codex/LIFEOS/B.ts",
     );
     expect(rewriteCodexPath("/workspace/.claude-example/file")).toBe("/workspace/.claude-example/file");
+  });
+
+  test("preserves custom hook fields and unknown handler types", () => {
+    const result = mergeCodexHooksDocument({
+      custom: { owner: "user" },
+      hooks: {
+        SessionStart: [{ customGroup: true, hooks: [{ type: "future_handler", payload: "keep" }] }],
+      },
+    }, {});
+
+    expect(result.custom).toEqual({ owner: "user" });
+    expect((result.hooks as Record<string, unknown>).SessionStart).toEqual([
+      { customGroup: true, hooks: [{ type: "future_handler", payload: "keep" }] },
+    ]);
   });
 });

@@ -11,15 +11,9 @@ import { existsSync } from "fs"
 import { rename } from "fs/promises"
 import { modelForEffort } from "../TOOLS/models.ts"
 import { PULSE_BASE } from "./endpoint"
-import { homedir } from "node:os";
+import { getHarnessKind, getLifeosDir } from "../TOOLS/lib/runtime-paths"
 
 export { PULSE_BASE }
-
-function lifeosDir(): string {
-  if (process.env.LIFEOS_DIR) return process.env.LIFEOS_DIR
-  const harnessHome = process.env.CODEX_HOME || join(homedir(), process.env.PAI_HARNESS === "codex" ? ".codex" : ".claude")
-  return join(harnessHome, "LIFEOS")
-}
 
 // ── Types ──
 
@@ -82,7 +76,7 @@ export interface DaemonConfig {
 // structural privacy lever — no separate scrub policy needed.
 
 export const USER_CRON_PATH = join(
-  lifeosDir(), "USER", "CONFIG", "PULSE.user.toml",
+  getLifeosDir(), "USER", "CONFIG", "PULSE.user.toml",
 )
 
 export interface JobState {
@@ -585,7 +579,7 @@ export async function spawnScript(command: string, timeoutMs = 60_000): Promise<
   const proc = Bun.spawn([BASH_PATH, "-c", command], {
     stdout: "pipe",
     stderr: "pipe",
-    cwd: join(lifeosDir(), "PULSE"),
+    cwd: join(getLifeosDir(), "PULSE"),
     env: { ...process.env },
   })
 
@@ -598,7 +592,7 @@ export async function spawnScript(command: string, timeoutMs = 60_000): Promise<
 }
 
 export async function spawnClaude(prompt: string, opts: { model: string; timeoutMs?: number }): Promise<string> {
-  if (process.env.PAI_HARNESS === "codex" || Boolean(process.env.CODEX_HOME)) {
+  if (getHarnessKind() === "codex") {
     const codexPath = Bun.which("codex") ?? (existsSync("/Applications/ChatGPT.app/Contents/Resources/codex")
       ? "/Applications/ChatGPT.app/Contents/Resources/codex"
       : "codex")
@@ -607,6 +601,8 @@ export async function spawnClaude(prompt: string, opts: { model: string; timeout
     delete env.ANTHROPIC_API_KEY
     delete env.ANTHROPIC_AUTH_TOKEN
     env.LIFEOS_NOTIFICATION_CHANNEL = env.LIFEOS_NOTIFICATION_CHANNEL || "headless"
+    const model = env.LIFEOS_CODEX_MODEL || "gpt-5.5"
+    const reasoningEffort = env.LIFEOS_CODEX_REASONING_EFFORT || "xhigh"
     const proc = Bun.spawn([
       codexPath,
       "exec",
@@ -615,9 +611,11 @@ export async function spawnClaude(prompt: string, opts: { model: string; timeout
       "--skip-git-repo-check",
       "--sandbox", "read-only",
       "--color", "never",
+      "--model", model,
+      "--config", `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`,
       "-",
     ], {
-      cwd: join(lifeosDir(), "PULSE"),
+      cwd: join(getLifeosDir(), "PULSE"),
       stdin: new Blob([prompt]),
       stdout: "pipe",
       stderr: "pipe",

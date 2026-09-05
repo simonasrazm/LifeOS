@@ -9,6 +9,7 @@
  */
 
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -175,6 +176,34 @@ function mergeNativeHooks(existing: CodexHooks, incoming: CodexHooks): CodexHook
   return merged;
 }
 
+/** Normalize only the one handler form Codex rejects; preserve everything else. */
+export function normalizeExistingCodexHooks(source: unknown): CodexHooks {
+  const input = typeof source === "object" && source !== null ? source as Record<string, unknown> : {};
+  const normalized: CodexHooks = {};
+  for (const [event, groupsValue] of Object.entries(input)) {
+    if (!Array.isArray(groupsValue)) continue;
+    normalized[event] = groupsValue.map((groupValue) => {
+      const group = typeof groupValue === "object" && groupValue !== null ? groupValue as Record<string, unknown> : {};
+      const hooks = Array.isArray(group.hooks)
+        ? group.hooks.map((hookValue) => {
+            if (typeof hookValue !== "object" || hookValue === null) return hookValue as CodexHook;
+            const hook = hookValue as CodexHook;
+            return hook.type === "http" ? (convertHook(hook) ?? { ...hook }) : { ...hook };
+          })
+        : [];
+      return { ...group, hooks } as CodexHookGroup;
+    });
+  }
+  return normalized;
+}
+
+export function mergeCodexHooksDocument(document: unknown, incoming: CodexHooks): Record<string, unknown> {
+  const existing = typeof document === "object" && document !== null
+    ? JSON.parse(JSON.stringify(document)) as Record<string, unknown>
+    : {};
+  return { ...existing, hooks: mergeNativeHooks(normalizeExistingCodexHooks(existing.hooks), incoming) };
+}
+
 function replaceMarkedBlock(existing: string, startMarker: string, endMarker: string, replacement: string): string {
   const start = existing.indexOf(startMarker);
   const end = existing.indexOf(endMarker, start + startMarker.length);
@@ -203,7 +232,6 @@ function managedAgentsBody(skillRoot: string): string {
     "# LifeOS — Codex startup",
     "",
     "Before any work, read `$CODEX_HOME/LIFEOS/LIFEOS_SYSTEM_PROMPT.md` and follow it.",
-    "Lifecycle verification marker: `LIFEOS_CODEX_NATIVE_V7`.",
     "Resolve all `LIFEOS/` paths below relative to `$CODEX_HOME`.",
     "",
   ].join("\n");
@@ -303,19 +331,20 @@ function main(): void {
   if (hooksCopy.failures.length > 0) throw new Error(hooksCopy.failures.join("\n"));
   report.hooksCopied = hooksCopy.copied;
 
-  const hooksPath = join(args.configRoot, "hooks.json");
-  let existingHooks: CodexHooks = {};
-  if (existsSync(hooksPath)) {
-    const parsed = JSON.parse(readFileSync(hooksPath, "utf-8"));
-    // Normalize legacy HTTP/path entries in-place, but never discard existing
-    // events merely because the current LifeOS payload does not emit them.
-    const normalized = codexHooksFromLifeOS(parsed.hooks);
-    existingHooks = normalized.hooks;
-    for (const event of normalized.unsupportedEvents) {
-      if (Array.isArray(parsed.hooks?.[event])) existingHooks[event] = parsed.hooks[event];
-    }
+  const backupDir = join(args.configRoot, ".lifeos-backups", `codex-${Date.now()}`);
+  mkdirSync(backupDir, { recursive: true });
+  for (const name of ["hooks.json", "AGENTS.md", "config.toml"]) {
+    const source = join(args.configRoot, name);
+    if (existsSync(source)) copyFileSync(source, join(backupDir, name));
   }
-  atomicWriteText(hooksPath, `${JSON.stringify({ hooks: mergeNativeHooks(existingHooks, converted.hooks) }, null, 2)}\n`);
+  report.nativeBackup = backupDir;
+
+  const hooksPath = join(args.configRoot, "hooks.json");
+  let hooksDocument: Record<string, unknown> = {};
+  if (existsSync(hooksPath)) {
+    hooksDocument = JSON.parse(readFileSync(hooksPath, "utf-8"));
+  }
+  atomicWriteText(hooksPath, `${JSON.stringify(mergeCodexHooksDocument(hooksDocument, converted.hooks), null, 2)}\n`);
 
   const agentsPath = join(args.configRoot, "AGENTS.md");
   const existingAgents = existsSync(agentsPath) ? readFileSync(agentsPath, "utf-8") : "";

@@ -51,9 +51,10 @@ import { join } from "path";
 import { homedir, tmpdir } from "os";
 import { randomUUID } from "crypto";
 import { modelForEffort, pinnedModelForEffort, EFFORT_MODEL, UNIFORM_HARNESS_EFFORT, type EffortLevel, type HarnessEffort } from './models';
+import { getHarnessKind, getLifeosDir } from './lib/runtime-paths';
 
 function isCodexHarness(): boolean {
-  return process.env.PAI_HARNESS === 'codex' || Boolean(process.env.CODEX_HOME?.endsWith('.codex'));
+  return getHarnessKind() === 'codex';
 }
 
 export function resolveCodexBin(): string {
@@ -64,7 +65,8 @@ export function resolveCodexBin(): string {
 }
 
 export function buildCodexInferenceArgs(options: InferenceOptions): string[] {
-  const model = process.env.LIFEOS_CODEX_MODEL;
+  const model = process.env.LIFEOS_CODEX_MODEL || 'gpt-5.5';
+  const reasoningEffort = process.env.LIFEOS_CODEX_REASONING_EFFORT || 'xhigh';
   return [
     "exec",
     "--ephemeral",
@@ -72,7 +74,8 @@ export function buildCodexInferenceArgs(options: InferenceOptions): string[] {
     "--skip-git-repo-check",
     "--sandbox", "read-only",
     "--color", "never",
-    ...(model ? ["--model", model] : []),
+    "--model", model,
+    "--config", `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`,
     ...(options.systemPrompt ? ["--config", `developer_instructions=${JSON.stringify(options.systemPrompt)}`] : []),
     ...(options.imagePaths?.flatMap((path) => ["--image", path]) ?? []),
     "-",
@@ -220,7 +223,7 @@ export function verifyExecutedModel(modelUsage: unknown, expectedTier: string): 
  * exact drift this catches and makes auditable. Logging must never break inference. */
 function logModelVerification(entry: Record<string, unknown>): void {
   try {
-    const lifeosDir = process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS');
+    const lifeosDir = getLifeosDir();
     const dir = join(lifeosDir, 'MEMORY', 'OBSERVABILITY');
     mkdirSync(dir, { recursive: true });
     appendFileSync(join(dir, 'model-verification.jsonl'), JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n');
@@ -242,7 +245,7 @@ async function codexInferenceAttempt(options: InferenceOptions): Promise<Inferen
     ? `User message: ${options.userPrompt}`
     : options.userPrompt;
   const proc = Bun.spawn([resolveCodexBin(), ...buildCodexInferenceArgs(options)], {
-    cwd: process.env.LIFEOS_DIR || process.cwd(),
+    cwd: getLifeosDir(),
     stdin: new Blob([userPrompt]),
     stdout: 'pipe',
     stderr: 'pipe',

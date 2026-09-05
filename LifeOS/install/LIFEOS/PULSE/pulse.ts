@@ -17,12 +17,12 @@ import { join } from "path"
 import { readFileSync, existsSync } from "fs"
 import { loadLifeosConfig } from "../TOOLS/LifeosConfig"
 import { isLoopbackHostHeader } from "./lib/host-guard.ts"
+import { getHarnessHome, getLifeosDir } from "../TOOLS/lib/runtime-paths"
 
 // ── Load .env before anything else ──
 
-const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
-const HARNESS_HOME = process.env.CODEX_HOME || join(HOME, process.env.PAI_HARNESS === "codex" ? ".codex" : ".claude")
-const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HARNESS_HOME, "LIFEOS")
+const HARNESS_HOME = getHarnessHome()
+const LIFEOS_DIR = getLifeosDir()
 const PULSE_DIR = join(LIFEOS_DIR, "PULSE")
 
 const envPath = join(HARNESS_HOME, ".env")
@@ -72,7 +72,6 @@ import {
 } from "./lib"
 
 import { startHooks, handleHooksRequestAsync, hooksHealth } from "./modules/hooks"
-import { homedir } from "node:os";
 
 // Conditional imports — modules may not exist yet during incremental migration
 let voiceModule: any = null
