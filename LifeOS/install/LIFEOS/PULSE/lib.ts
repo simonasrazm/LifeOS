@@ -12,6 +12,7 @@ import { rename } from "fs/promises"
 import { modelForEffort } from "../TOOLS/models.ts"
 import { PULSE_BASE } from "./endpoint"
 import { getHarnessKind, getLifeosDir } from "../TOOLS/lib/runtime-paths"
+import { buildPulseCodexArgs } from "./codex"
 
 export { PULSE_BASE }
 
@@ -601,19 +602,9 @@ export async function spawnClaude(prompt: string, opts: { model: string; timeout
     delete env.ANTHROPIC_API_KEY
     delete env.ANTHROPIC_AUTH_TOKEN
     env.LIFEOS_NOTIFICATION_CHANNEL = env.LIFEOS_NOTIFICATION_CHANNEL || "headless"
-    const model = env.LIFEOS_CODEX_MODEL || "gpt-5.5"
-    const reasoningEffort = env.LIFEOS_CODEX_REASONING_EFFORT || "xhigh"
     const proc = Bun.spawn([
       codexPath,
-      "exec",
-      "--ephemeral",
-      "--ignore-user-config",
-      "--skip-git-repo-check",
-      "--sandbox", "read-only",
-      "--color", "never",
-      "--model", model,
-      "--config", `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`,
-      "-",
+      ...buildPulseCodexArgs(env),
     ], {
       cwd: join(getLifeosDir(), "PULSE"),
       stdin: new Blob([prompt]),
