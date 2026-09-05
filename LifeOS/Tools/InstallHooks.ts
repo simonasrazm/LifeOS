@@ -3,14 +3,15 @@
  * InstallHooks — Setup step 7 (trust-gated). Additively merges the payload's
  * `install/hooks/hooks.json` into the harness `settings.json`: per matcher
  * bucket, idempotent by normalized command (and url for http entries), never
- * touching foreign entries. Backs up settings.json before writing. REFUSES on a
+ * touching foreign entries. Backs up settings.json before writing unless the
+ * caller uses `--no-native-backup` and owns rollback elsewhere. REFUSES on a
  * dev tree (the author's live source) unless --allow-dev.
  *
  * The skill's Setup workflow shows the user the exact change (from the dry-run
  * counts) and gets explicit permission BEFORE calling this with --apply.
  *
  * Usage:
- *   bun InstallHooks.ts [--config-root <dir>] [--skill-root <dir>] [--apply] [--allow-dev]
+ *   bun InstallHooks.ts [--config-root <dir>] [--skill-root <dir>] [--apply] [--allow-dev] [--no-native-backup]
  *   (dry-run by default — reports added/skipped without writing)
  */
 
@@ -21,7 +22,7 @@ import { homedir } from "node:os";
 import { detectDevTree, mergeHooks } from "./InstallEngine";
 import { atomicWriteText } from "./lib/atomic-write";
 
-interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; }
+interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; nativeBackup: boolean; }
 
 function parseArgs(): Args {
   const a = process.argv.slice(2);
@@ -35,6 +36,7 @@ function parseArgs(): Args {
     skillRoot: get("--skill-root") || join(import.meta.dir, ".."),
     apply: a.includes("--apply"),
     allowDev: a.includes("--allow-dev"),
+    nativeBackup: !a.includes("--no-native-backup"),
   };
 }
 
@@ -50,7 +52,7 @@ function countFilesRec(dir: string): number {
 }
 
 function main(): void {
-  const { configRoot, skillRoot, apply, allowDev } = parseArgs();
+  const { configRoot, skillRoot, apply, allowDev, nativeBackup } = parseArgs();
 
   if (detectDevTree(configRoot) && !allowDev) {
     console.log(JSON.stringify({ ok: false, refused: "dev-tree", detail: `${configRoot} is a LifeOS source tree (dev-tree marker present) — refusing to mutate. Use --allow-dev only in a sandbox.` }, null, 2));
@@ -104,7 +106,7 @@ function main(): void {
 
   // Back up settings.json before writing (only if it exists).
   let backup: string | undefined;
-  if (existsSync(settingsPath)) {
+  if (nativeBackup && existsSync(settingsPath)) {
     backup = `${settingsPath}.lifeos-backup-${Date.now()}`;
     copyFileSync(settingsPath, backup);
   }
