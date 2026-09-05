@@ -52,6 +52,12 @@ describe("InstallCodex native adapter", () => {
           matcher: "Bash|Write|Agent|Skill",
           customGroup: true,
           hooks: [{ type: "http", url: "http://localhost:31337/hooks/skill-guard", timeout: 7 }],
+        }, {
+          matcher: "Edit",
+          hooks: [{ type: "command", command: "$HOME/.claude/hooks/SecurityPipeline.hook.ts" }],
+        }, {
+          matcher: "MultiEdit",
+          hooks: [{ type: "command", command: "$HOME/.claude/hooks/SecurityPipeline.hook.ts" }],
         }],
       },
     }, {});
@@ -62,6 +68,9 @@ describe("InstallCodex native adapter", () => {
     expect(group.customGroup).toBe(true);
     expect(group.hooks[0].type).toBe("command");
     expect(group.hooks[0].timeout).toBe(7);
+    const applyGroups = (result.hooks as CodexHooks).PreToolUse.filter((candidate) => candidate.matcher === "apply_patch");
+    expect(applyGroups).toHaveLength(1);
+    expect(applyGroups[0].hooks).toHaveLength(1);
   });
 
   test("preserves custom AGENTS text and updates one managed block", () => {

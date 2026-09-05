@@ -216,7 +216,9 @@ export function mergeCodexHooksDocument(document: unknown, incoming: CodexHooks)
   const existing = typeof document === "object" && document !== null
     ? JSON.parse(JSON.stringify(document)) as Record<string, unknown>
     : {};
-  return { ...existing, hooks: mergeNativeHooks(normalizeExistingCodexHooks(existing.hooks), incoming) };
+  const normalized = normalizeExistingCodexHooks(existing.hooks);
+  const consolidated = mergeNativeHooks({}, normalized);
+  return { ...existing, hooks: mergeNativeHooks(consolidated, incoming) };
 }
 
 function replaceMarkedBlock(existing: string, startMarker: string, endMarker: string, replacement: string): string {
