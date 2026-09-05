@@ -31,6 +31,7 @@ describe("InstallCodex native adapter", () => {
         "--config-root", configRoot,
         "--config-dir", configDir,
         "--skill-root", join(import.meta.dir, ".."),
+        "--no-native-backup",
         "--apply",
       ], { stdout: "pipe", stderr: "pipe" });
       expect(proc.exitCode).toBe(0);
@@ -38,6 +39,7 @@ describe("InstallCodex native adapter", () => {
       expect(existsSync(join(userDir, "CONFIG", "OPERATIONAL_RULES.md"))).toBe(true);
       expect(existsSync(join(userDir, "DIGITAL_ASSISTANT", "DA_IDENTITY.md"))).toBe(true);
       expect(existsSync(join(userDir, "TELOS", "LIFEOS_STATE.json"))).toBe(true);
+      expect(existsSync(join(configRoot, ".lifeos-backups"))).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

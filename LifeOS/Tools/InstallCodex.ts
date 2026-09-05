@@ -286,6 +286,7 @@ function parseArgs(argv: string[]): {
   skillRoot: string;
   apply: boolean;
   allowDev: boolean;
+  nativeBackup: boolean;
 } {
   const value = (flag: string): string | undefined => {
     const index = argv.indexOf(flag);
@@ -298,6 +299,7 @@ function parseArgs(argv: string[]): {
     skillRoot: value("--skill-root") || join(import.meta.dir, ".."),
     apply: argv.includes("--apply"),
     allowDev: argv.includes("--allow-dev"),
+    nativeBackup: !argv.includes("--no-native-backup"),
   };
 }
 
@@ -347,13 +349,17 @@ function main(): void {
   if (hooksCopy.failures.length > 0) throw new Error(hooksCopy.failures.join("\n"));
   report.hooksCopied = hooksCopy.copied;
 
-  const backupDir = join(args.configRoot, ".lifeos-backups", `codex-${Date.now()}`);
-  mkdirSync(backupDir, { recursive: true });
-  for (const name of ["hooks.json", "AGENTS.md", "config.toml"]) {
-    const source = join(args.configRoot, name);
-    if (existsSync(source)) copyFileSync(source, join(backupDir, name));
+  if (args.nativeBackup) {
+    const backupDir = join(args.configRoot, ".lifeos-backups", `codex-${Date.now()}`);
+    mkdirSync(backupDir, { recursive: true });
+    for (const name of ["hooks.json", "AGENTS.md", "config.toml"]) {
+      const source = join(args.configRoot, name);
+      if (existsSync(source)) copyFileSync(source, join(backupDir, name));
+    }
+    report.nativeBackup = backupDir;
+  } else {
+    report.nativeBackup = { skipped: true, reason: "--no-native-backup" };
   }
-  report.nativeBackup = backupDir;
 
   const hooksPath = join(args.configRoot, "hooks.json");
   let hooksDocument: Record<string, unknown> = {};
