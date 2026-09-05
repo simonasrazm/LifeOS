@@ -4,11 +4,13 @@
  *
  * Composes the existing additive core/USER deployment tools, then installs the
  * Codex-owned surfaces: AGENTS.md, hooks.json, config.toml, and hook scripts.
- * Dry-run is the default. Existing user text and hook entries are preserved;
- * the adapter owns only its marked AGENTS block and files absent at install.
+ * Dry-run is the default. Existing user text and custom hook entries are
+ * preserved; the adapter replaces only its marked AGENTS block, registrations,
+ * and hook payload files.
  */
 
 import {
+  cpSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -17,7 +19,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { copyMissing, detectDevTree } from "./InstallEngine";
+import { detectDevTree } from "./InstallEngine";
 import { atomicWriteText } from "./lib/atomic-write";
 
 const MANAGED_START = "<!-- LifeOS managed: start -->";
@@ -106,7 +108,7 @@ function convertHook(hook: CodexHook): CodexHook | undefined {
     const converted: CodexHook = {
       ...hook,
       type: "command",
-      command: `bash -lc ${shellQuote(request)}`,
+      command: wrapCodexCommand(request),
     };
     delete converted.url;
     return converted;
@@ -217,6 +219,22 @@ export function mergeCodexHooksDocument(document: unknown, incoming: CodexHooks)
     ? JSON.parse(JSON.stringify(document)) as Record<string, unknown>
     : {};
   const normalized = normalizeExistingCodexHooks(existing.hooks);
+  if (Object.keys(incoming).length > 0) {
+    // Reinstallation replaces this adapter's prior registrations instead of
+    // accumulating quote/layout variants. Custom registrations are untouched.
+    for (const [event, groups] of Object.entries(normalized)) {
+      normalized[event] = groups.map((group) => ({
+        ...group,
+        hooks: group.hooks.filter((hook) => {
+          const command = typeof hook.command === "string" ? hook.command : "";
+          return !command.includes("PAI_HARNESS=codex")
+            && !command.includes("localhost:31337/hooks/skill-guard")
+            && !command.includes("localhost:31337/hooks/agent-guard");
+        }),
+      })).filter((group) => group.hooks.length > 0);
+      if (normalized[event].length === 0) delete normalized[event];
+    }
+  }
   const consolidated = mergeNativeHooks({}, normalized);
   return { ...existing, hooks: mergeNativeHooks(consolidated, incoming) };
 }
@@ -345,9 +363,13 @@ function main(): void {
   report.scaffoldUser = runTool(join(import.meta.dir, "ScaffoldUser.ts"), [...common, "--config-dir", args.configDir]);
   report.linkUser = runTool(join(import.meta.dir, "LinkUser.ts"), ["--config-root", args.configRoot, "--config-dir", args.configDir, "--apply", ...(args.allowDev ? ["--allow-dev"] : [])]);
 
-  const hooksCopy = copyMissing(join(args.skillRoot, "install", "hooks"), join(args.configRoot, "hooks"));
-  if (hooksCopy.failures.length > 0) throw new Error(hooksCopy.failures.join("\n"));
-  report.hooksCopied = hooksCopy.copied;
+  // Hook sources are adapter-owned payload, not user state. Overlay them so an
+  // upgrade actually activates fixes while leaving non-payload custom files.
+  cpSync(join(args.skillRoot, "install", "hooks"), join(args.configRoot, "hooks"), {
+    recursive: true,
+    force: true,
+  });
+  report.hooksOverlayApplied = true;
 
   if (args.nativeBackup) {
     const backupDir = join(args.configRoot, ".lifeos-backups", `codex-${Date.now()}`);

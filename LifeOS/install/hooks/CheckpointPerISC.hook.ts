@@ -32,6 +32,7 @@ import { isForeignToSystemRepo, looksLikePersonalTranscript } from '../LIFEOS/TO
 // lines are ignored. Tilde and $HOME prefixes are expanded as a quality-of-
 // life feature so users can write `~/Projects/foo` instead of the long form.
 const ALLOWLIST_PATH = join(homedir(), '.claude', 'checkpoint-repos.txt');
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS');
 const GIT_TIMEOUT_MS = 5000;
 
 interface CheckpointState {
@@ -246,7 +247,7 @@ async function main() {
   // interview-evidence upgrade). Everything else keeps the beside-the-ISA path.
   const skillsPrefix = join(homedir(), '.claude', 'skills') + '/';
   const inSkillTree = slugDir.startsWith(skillsPrefix);
-  const skillStateDir = join(homedir(), '.claude', 'LIFEOS', 'MEMORY', 'STATE', 'checkpoints');
+  const skillStateDir = join(LIFEOS_DIR, 'MEMORY', 'STATE', 'checkpoints');
   if (inSkillTree) mkdirSync(skillStateDir, { recursive: true });
   const stateFile = inSkillTree
     ? join(skillStateDir, `skill-${slug}.checkpoint-state.json`)

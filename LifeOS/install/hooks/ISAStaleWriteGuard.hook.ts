@@ -54,7 +54,8 @@ import { homedir } from "node:os";
 
 type BlockResult = { block: true; message: string } | null;
 
-const STATE_DIR = join(homedir(), ".claude/LIFEOS/MEMORY/STATE/isa-session-view");
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
+const STATE_DIR = join(LIFEOS_DIR, "MEMORY/STATE/isa-session-view");
 const PRUNE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**

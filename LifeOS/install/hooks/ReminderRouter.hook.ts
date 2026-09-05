@@ -28,7 +28,8 @@ import { loadWorkConfig } from "./lib/work-config";
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
-const STATE_PATH = join(HOME, ".claude", "LIFEOS", "MEMORY", "STATE", "reminder-router-seen.json");
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
+const STATE_PATH = join(LIFEOS_DIR, "MEMORY", "STATE", "reminder-router-seen.json");
 
 interface HookInput {
   session_id?: string;

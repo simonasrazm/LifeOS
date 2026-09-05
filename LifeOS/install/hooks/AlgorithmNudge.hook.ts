@@ -456,7 +456,7 @@ function loadIndex(): SkillIndex | null {
       // self-heal must leave a trace something can see.
       try {
         appendFileSync(
-          join(homedir(), '.claude/LIFEOS/MEMORY/OBSERVABILITY/hook-selfheal.jsonl'),
+          join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'MEMORY/OBSERVABILITY/hook-selfheal.jsonl'),
           JSON.stringify({ ts: new Date().toISOString(), hook: 'AlgorithmNudge', action: 'rebuild-index', bun, error: String(e) }) + '\n',
         );
       } catch { /* observability write itself is best-effort */ }

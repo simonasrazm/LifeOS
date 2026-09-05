@@ -24,7 +24,8 @@ import { homedir } from "node:os";
 import { evaluateEgress } from "./lib/egress-class-core";
 
 const HOME = process.env.HOME ?? homedir();
-const LOG_PATH = join(HOME, ".claude/LIFEOS/MEMORY/OBSERVABILITY/egress-decisions.jsonl");
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
+const LOG_PATH = join(LIFEOS_DIR, "MEMORY/OBSERVABILITY/egress-decisions.jsonl");
 
 interface HookInput {
   session_id?: string;

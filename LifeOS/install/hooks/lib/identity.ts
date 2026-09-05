@@ -36,7 +36,7 @@ function paiUserDir(): string {
   try {
     return loadLifeosConfig().paths.userDir;
   } catch {
-    return join(HOME, '.claude/LIFEOS/USER');
+    return join(process.env.LIFEOS_DIR || join(HOME, '.claude', 'LIFEOS'), 'USER');
   }
 }
 const DA_IDENTITY_PATH = join(paiUserDir(), 'DIGITAL_ASSISTANT/DA_IDENTITY.md');

@@ -40,6 +40,23 @@ describe("InstallCodex native adapter", () => {
       expect(existsSync(join(userDir, "DIGITAL_ASSISTANT", "DA_IDENTITY.md"))).toBe(true);
       expect(existsSync(join(userDir, "TELOS", "LIFEOS_STATE.json"))).toBe(true);
       expect(existsSync(join(configRoot, ".lifeos-backups"))).toBe(false);
+
+      const installedHook = join(configRoot, "hooks", "LoadContext.hook.ts");
+      writeFileSync(installedHook, "stale adapter hook\n");
+      writeFileSync(join(configRoot, "hooks", "Custom.hook.ts"), "principal-owned\n");
+      const reinstall = Bun.spawnSync([
+        "bun", join(import.meta.dir, "InstallCodex.ts"),
+        "--config-root", configRoot,
+        "--config-dir", configDir,
+        "--skill-root", join(import.meta.dir, ".."),
+        "--no-native-backup",
+        "--apply",
+      ], { stdout: "pipe", stderr: "pipe" });
+      expect(reinstall.exitCode).toBe(0);
+      expect(readFileSync(installedHook, "utf-8")).toBe(
+        readFileSync(join(import.meta.dir, "../install/hooks/LoadContext.hook.ts"), "utf-8"),
+      );
+      expect(readFileSync(join(configRoot, "hooks", "Custom.hook.ts"), "utf-8")).toBe("principal-owned\n");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -70,7 +87,25 @@ describe("InstallCodex native adapter", () => {
     expect(hook.type).toBe("command");
     expect(hook.command).toContain("curl -sS -m 2");
     expect(hook.command).toContain("http://localhost:31337/hooks/skill-guard");
-    expect(hook.command).toEndWith("|| true'");
+    expect(hook.command).toContain("PAI_HARNESS=codex");
+    expect(hook.command).toContain("|| true");
+  });
+
+  test("replaces prior adapter registrations without touching custom hooks", () => {
+    const incoming = codexHooksFromLifeOS({
+      PreToolUse: [{ matcher: "Skill", hooks: [{ type: "http", url: "http://localhost:31337/hooks/skill-guard" }] }],
+    }).hooks;
+    const result = mergeCodexHooksDocument({
+      hooks: {
+        PreToolUse: [{ matcher: "skill", hooks: [
+          { type: "command", command: "bash -lc 'export PAI_HARNESS=codex; old-wrapper'" },
+          { type: "command", command: "custom-hook --keep" },
+        ] }],
+      },
+    }, incoming);
+    const hooks = (result.hooks as CodexHooks).PreToolUse[0].hooks;
+    expect(hooks.filter((hook) => hook.command?.includes("PAI_HARNESS=codex"))).toHaveLength(1);
+    expect(hooks.some((hook) => hook.command === "custom-hook --keep")).toBe(true);
   });
 
   test("normalizes existing Claude matchers while preserving custom fields", () => {
