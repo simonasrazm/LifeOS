@@ -41,8 +41,14 @@ describe("InstallCodex native adapter", () => {
       expect(existsSync(join(userDir, "TELOS", "LIFEOS_STATE.json"))).toBe(true);
       expect(existsSync(join(configRoot, ".lifeos-backups"))).toBe(false);
 
+      const agents = readFileSync(join(configRoot, "AGENTS.md"), "utf-8");
+      expect(agents).toContain("${CODEX_HOME:-$HOME/.codex}/LIFEOS/LIFEOS_SYSTEM_PROMPT.md");
+      expect(agents).not.toContain("read `$CODEX_HOME/LIFEOS/LIFEOS_SYSTEM_PROMPT.md`");
+
       const installedHook = join(configRoot, "hooks", "LoadContext.hook.ts");
+      const installedSystemPrompt = join(configRoot, "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md");
       writeFileSync(installedHook, "stale adapter hook\n");
+      writeFileSync(installedSystemPrompt, "stale system prompt\n");
       writeFileSync(join(configRoot, "hooks", "Custom.hook.ts"), "principal-owned\n");
       const reinstall = Bun.spawnSync([
         "bun", join(import.meta.dir, "InstallCodex.ts"),
@@ -55,6 +61,9 @@ describe("InstallCodex native adapter", () => {
       expect(reinstall.exitCode).toBe(0);
       expect(readFileSync(installedHook, "utf-8")).toBe(
         readFileSync(join(import.meta.dir, "../install/hooks/LoadContext.hook.ts"), "utf-8"),
+      );
+      expect(readFileSync(installedSystemPrompt, "utf-8")).toBe(
+        readFileSync(join(import.meta.dir, "../install/LIFEOS/LIFEOS_SYSTEM_PROMPT.md"), "utf-8"),
       );
       expect(readFileSync(join(configRoot, "hooks", "Custom.hook.ts"), "utf-8")).toBe("principal-owned\n");
     } finally {

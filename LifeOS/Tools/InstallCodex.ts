@@ -266,8 +266,9 @@ function managedAgentsBody(skillRoot: string): string {
   const preamble = [
     "# LifeOS — Codex startup",
     "",
-    "Before any work, read `$CODEX_HOME/LIFEOS/LIFEOS_SYSTEM_PROMPT.md` and follow it.",
-    "Resolve all `LIFEOS/` paths below relative to `$CODEX_HOME`.",
+    "Resolve Codex home as `${CODEX_HOME:-$HOME/.codex}`; never pass an unset `$CODEX_HOME` to shell commands.",
+    "Before any work, read `${CODEX_HOME:-$HOME/.codex}/LIFEOS/LIFEOS_SYSTEM_PROMPT.md` and follow it.",
+    "Resolve all `LIFEOS/` paths below relative to `${CODEX_HOME:-$HOME/.codex}`.",
     "",
   ].join("\n");
   return rewriteCodexPath(`${preamble}${template}`)
@@ -330,8 +331,9 @@ function main(): void {
 
   const payloadHooksPath = join(args.skillRoot, "install", "hooks", "hooks.json");
   const templatePath = join(args.skillRoot, "install", "CLAUDE.template.md");
-  if (!existsSync(payloadHooksPath) || !existsSync(templatePath)) {
-    console.log(JSON.stringify({ ok: false, error: "LifeOS install payload is incomplete", payloadHooksPath, templatePath }, null, 2));
+  const systemPromptSource = join(args.skillRoot, "install", "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md");
+  if (!existsSync(payloadHooksPath) || !existsSync(templatePath) || !existsSync(systemPromptSource)) {
+    console.log(JSON.stringify({ ok: false, error: "LifeOS install payload is incomplete", payloadHooksPath, templatePath, systemPromptSource }, null, 2));
     process.exit(1);
   }
 
@@ -362,6 +364,11 @@ function main(): void {
   // schema paths during upgrades instead of remaining permanently incomplete.
   report.scaffoldUser = runTool(join(import.meta.dir, "ScaffoldUser.ts"), [...common, "--config-dir", args.configDir]);
   report.linkUser = runTool(join(import.meta.dir, "LinkUser.ts"), ["--config-root", args.configRoot, "--config-dir", args.configDir, "--apply", ...(args.allowDev ? ["--allow-dev"] : [])]);
+
+  // The system prompt is installer-owned doctrine. DeployCore is deliberately
+  // additive for runtime state, so overlay this file explicitly on upgrades.
+  copyFileSync(systemPromptSource, join(args.configRoot, "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md"));
+  report.systemPromptUpdated = true;
 
   // Hook sources are adapter-owned payload, not user state. Overlay them so an
   // upgrade actually activates fixes while leaving non-payload custom files.
