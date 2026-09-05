@@ -52,6 +52,33 @@ import { homedir, tmpdir } from "os";
 import { randomUUID } from "crypto";
 import { modelForEffort, pinnedModelForEffort, EFFORT_MODEL, UNIFORM_HARNESS_EFFORT, type EffortLevel, type HarnessEffort } from './models';
 
+function isCodexHarness(): boolean {
+  return process.env.PAI_HARNESS === 'codex' || Boolean(process.env.CODEX_HOME?.endsWith('.codex'));
+}
+
+export function resolveCodexBin(): string {
+  const fromPath = typeof Bun !== "undefined" ? Bun.which("codex") : null;
+  if (fromPath) return fromPath;
+  const appBinary = "/Applications/ChatGPT.app/Contents/Resources/codex";
+  return existsSync(appBinary) ? appBinary : "codex";
+}
+
+export function buildCodexInferenceArgs(options: InferenceOptions): string[] {
+  const model = process.env.LIFEOS_CODEX_MODEL;
+  return [
+    "exec",
+    "--ephemeral",
+    "--ignore-user-config",
+    "--skip-git-repo-check",
+    "--sandbox", "read-only",
+    "--color", "never",
+    ...(model ? ["--model", model] : []),
+    ...(options.systemPrompt ? ["--config", `developer_instructions=${JSON.stringify(options.systemPrompt)}`] : []),
+    ...(options.imagePaths?.flatMap((path) => ["--image", path]) ?? []),
+    "-",
+  ];
+}
+
 /**
  * Resolve the claude binary explicitly. launchd jobs run with a minimal PATH
  * that lacks ~/.local/bin, which made every scheduled caller (amber route,
@@ -193,16 +220,65 @@ export function verifyExecutedModel(modelUsage: unknown, expectedTier: string): 
  * exact drift this catches and makes auditable. Logging must never break inference. */
 function logModelVerification(entry: Record<string, unknown>): void {
   try {
-    const dir = join(homedir(), '.claude', 'LIFEOS', 'MEMORY', 'OBSERVABILITY');
+    const lifeosDir = process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS');
+    const dir = join(lifeosDir, 'MEMORY', 'OBSERVABILITY');
     mkdirSync(dir, { recursive: true });
     appendFileSync(join(dir, 'model-verification.jsonl'), JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n');
   } catch { /* observability must never break inference */ }
+}
+
+async function codexInferenceAttempt(options: InferenceOptions): Promise<InferenceResult> {
+  const level = normalizeLevel(options.level);
+  const timeout = options.timeout || LEVEL_CONFIG[level].defaultTimeout;
+  const startTime = Date.now();
+  const env = { ...process.env } as Record<string, string>;
+  delete env.OPENAI_API_KEY;
+  delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_AUTH_TOKEN;
+  env.PAI_HARNESS = 'codex';
+  env.LIFEOS_NOTIFICATION_CHANNEL = env.LIFEOS_NOTIFICATION_CHANNEL || 'headless';
+
+  const userPrompt = /^\s*\//.test(options.userPrompt)
+    ? `User message: ${options.userPrompt}`
+    : options.userPrompt;
+  const proc = Bun.spawn([resolveCodexBin(), ...buildCodexInferenceArgs(options)], {
+    cwd: process.env.LIFEOS_DIR || process.cwd(),
+    stdin: new Blob([userPrompt]),
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env,
+  });
+
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    proc.kill('SIGTERM');
+  }, timeout);
+  const stdout = await new Response(proc.stdout).text();
+  const stderr = await new Response(proc.stderr).text();
+  const code = await proc.exited;
+  clearTimeout(timer);
+  const output = stdout.trim();
+  const base = { output, latencyMs: Date.now() - startTime, level };
+
+  if (timedOut) return { success: false, ...base, error: `Timeout after ${timeout}ms` };
+  if (code !== 0) return { success: false, ...base, error: stderr.trim() || `Codex exited ${code}` };
+
+  if (options.expectJson) {
+    for (const candidate of [output.match(/\{[\s\S]*\}/)?.[0], output.match(/\[[\s\S]*\]/)?.[0]]) {
+      if (!candidate) continue;
+      try { return { success: true, ...base, parsed: JSON.parse(candidate) }; } catch { /* try next */ }
+    }
+    return { success: false, ...base, error: 'Failed to parse JSON response' };
+  }
+  return { success: true, ...base };
 }
 
 /**
  * Run inference with configurable level
  */
 async function inferenceAttempt(options: InferenceOptions, modelOverride?: string): Promise<InferenceResult> {
+  if (isCodexHarness()) return codexInferenceAttempt(options);
   const level = normalizeLevel(options.level);
   const config = LEVEL_CONFIG[level];
   const startTime = Date.now();

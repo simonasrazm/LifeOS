@@ -21,10 +21,11 @@ import { isLoopbackHostHeader } from "./lib/host-guard.ts"
 // ── Load .env before anything else ──
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
+const HARNESS_HOME = process.env.CODEX_HOME || join(HOME, process.env.PAI_HARNESS === "codex" ? ".codex" : ".claude")
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HARNESS_HOME, "LIFEOS")
 const PULSE_DIR = join(LIFEOS_DIR, "PULSE")
 
-const envPath = join(HOME, ".claude", ".env")
+const envPath = join(HARNESS_HOME, ".env")
 try {
   const envContent = readFileSync(envPath, "utf-8")
   for (const line of envContent.split("\n")) {

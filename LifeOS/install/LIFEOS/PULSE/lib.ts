@@ -15,6 +15,12 @@ import { homedir } from "node:os";
 
 export { PULSE_BASE }
 
+function lifeosDir(): string {
+  if (process.env.LIFEOS_DIR) return process.env.LIFEOS_DIR
+  const harnessHome = process.env.CODEX_HOME || join(homedir(), process.env.PAI_HARNESS === "codex" ? ".codex" : ".claude")
+  return join(harnessHome, "LIFEOS")
+}
+
 // ── Types ──
 
 export type OutputTarget = "voice" | "ntfy" | "email" | "log"
@@ -76,8 +82,7 @@ export interface DaemonConfig {
 // structural privacy lever — no separate scrub policy needed.
 
 export const USER_CRON_PATH = join(
-  homedir(),
-  ".claude", "LIFEOS", "USER", "CONFIG", "PULSE.user.toml",
+  lifeosDir(), "USER", "CONFIG", "PULSE.user.toml",
 )
 
 export interface JobState {
@@ -580,7 +585,7 @@ export async function spawnScript(command: string, timeoutMs = 60_000): Promise<
   const proc = Bun.spawn([BASH_PATH, "-c", command], {
     stdout: "pipe",
     stderr: "pipe",
-    cwd: join(homedir(), ".claude", "LIFEOS", "PULSE"),
+    cwd: join(lifeosDir(), "PULSE"),
     env: { ...process.env },
   })
 
@@ -593,6 +598,38 @@ export async function spawnScript(command: string, timeoutMs = 60_000): Promise<
 }
 
 export async function spawnClaude(prompt: string, opts: { model: string; timeoutMs?: number }): Promise<string> {
+  if (process.env.PAI_HARNESS === "codex" || Boolean(process.env.CODEX_HOME)) {
+    const codexPath = Bun.which("codex") ?? (existsSync("/Applications/ChatGPT.app/Contents/Resources/codex")
+      ? "/Applications/ChatGPT.app/Contents/Resources/codex"
+      : "codex")
+    const env: Record<string, string> = { ...process.env, PAI_HARNESS: "codex" } as Record<string, string>
+    delete env.OPENAI_API_KEY
+    delete env.ANTHROPIC_API_KEY
+    delete env.ANTHROPIC_AUTH_TOKEN
+    env.LIFEOS_NOTIFICATION_CHANNEL = env.LIFEOS_NOTIFICATION_CHANNEL || "headless"
+    const proc = Bun.spawn([
+      codexPath,
+      "exec",
+      "--ephemeral",
+      "--ignore-user-config",
+      "--skip-git-repo-check",
+      "--sandbox", "read-only",
+      "--color", "never",
+      "-",
+    ], {
+      cwd: join(lifeosDir(), "PULSE"),
+      stdin: new Blob([prompt]),
+      stdout: "pipe",
+      stderr: "pipe",
+      env,
+    })
+    const timeoutMs = opts.timeoutMs ?? 300_000
+    const { stdout, stderr, exitCode, timedOut } = await collectProc(proc, timeoutMs)
+    if (timedOut) throw new Error(`codex timed out after ${timeoutMs}ms: ${stderr.slice(0, 200)}`)
+    if (exitCode !== 0) throw new Error(`codex exited ${exitCode}: ${stderr.slice(0, 200)}`)
+    return stdout.trim()
+  }
+
   // BILLING: Use subscription via OAuth, NOT API key. Two requirements:
   //   1. Remove --bare flag — `--bare` forces ANTHROPIC_API_KEY auth and skips
   //      OAuth/keychain entirely. That was the root cause of the Apr 2026 Haiku
