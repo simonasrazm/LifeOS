@@ -25,7 +25,9 @@ describe("InstallCodex native adapter", () => {
 
     expect(Object.keys(result.hooks)).toEqual(["SessionStart", "PreToolUse"]);
     expect(result.unsupportedEvents).toEqual(["ConfigChange"]);
-    expect(result.hooks.SessionStart[0].hooks[0].command).toBe("$HOME/.codex/hooks/LoadContext.hook.ts");
+    expect(result.hooks.SessionStart[0].hooks[0].command).toContain("$CODEX_HOME/hooks/LoadContext.hook.ts");
+    expect(result.hooks.SessionStart[0].hooks[0].command).toContain('CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"');
+    expect(result.hooks.SessionStart[0].hooks[0].command).toContain("LIFEOS_DIR=\"$CODEX_HOME/LIFEOS\"");
     expect(result.hooks.PreToolUse[0].matcher).toBe("exec_command|apply_patch|request_user_input");
   });
 
@@ -61,7 +63,7 @@ describe("InstallCodex native adapter", () => {
 
   test("rewrites only harness-owned paths", () => {
     expect(rewriteCodexPath("$HOME/.claude/hooks/A.ts ~/.claude/LIFEOS/B.ts")).toBe(
-      "$HOME/.codex/hooks/A.ts $HOME/.codex/LIFEOS/B.ts",
+      "$CODEX_HOME/hooks/A.ts $CODEX_HOME/LIFEOS/B.ts",
     );
     expect(rewriteCodexPath("/workspace/.claude-example/file")).toBe("/workspace/.claude-example/file");
   });

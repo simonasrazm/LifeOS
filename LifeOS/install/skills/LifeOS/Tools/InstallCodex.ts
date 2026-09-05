@@ -75,6 +75,7 @@ function shellQuote(value: string): string {
 
 function wrapCodexCommand(command: string): string {
   const script = [
+    'export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"',
     'export PAI_HARNESS=codex',
     'export LIFEOS_DIR="$CODEX_HOME/LIFEOS"',
     'export CLAUDE_PLUGIN_ROOT="$CODEX_HOME"',
