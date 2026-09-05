@@ -15,10 +15,12 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { detectDevTree } from "./InstallEngine";
 import { atomicWriteText } from "./lib/atomic-write";
 
@@ -75,11 +77,14 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-function wrapCodexCommand(command: string): string {
+function wrapCodexCommand(command: string, lifeosDir = "$CODEX_HOME/LIFEOS"): string {
+  const lifeosExport = lifeosDir === "$CODEX_HOME/LIFEOS"
+    ? 'export LIFEOS_DIR="$CODEX_HOME/LIFEOS"'
+    : `export LIFEOS_DIR=${shellQuote(lifeosDir)}`;
   const script = [
     'export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"',
     'export PAI_HARNESS=codex',
-    'export LIFEOS_DIR="$CODEX_HOME/LIFEOS"',
+    lifeosExport,
     'export CLAUDE_PLUGIN_ROOT="$CODEX_HOME"',
     command,
   ].join('; ');
@@ -102,26 +107,26 @@ function mapMatcher(matcher: string | undefined): string | undefined {
   return mapped.join("|");
 }
 
-function convertHook(hook: CodexHook): CodexHook | undefined {
+function convertHook(hook: CodexHook, lifeosDir?: string): CodexHook | undefined {
   if (hook.type === "http" && typeof hook.url === "string" && hook.url) {
     const request = `curl -sS -m 2 -X POST ${shellQuote(hook.url)} -H ${shellQuote("Content-Type: application/json")} --data-binary @- || true`;
     const converted: CodexHook = {
       ...hook,
       type: "command",
-      command: wrapCodexCommand(request),
+      command: wrapCodexCommand(request, lifeosDir),
     };
     delete converted.url;
     return converted;
   }
   if ((hook.type === undefined || hook.type === "command") && typeof hook.command === "string") {
-    return { ...hook, type: "command", command: wrapCodexCommand(rewriteCodexPath(hook.command)) };
+    return { ...hook, type: "command", command: wrapCodexCommand(rewriteCodexPath(hook.command), lifeosDir) };
   }
   if (hook.type === "mcp_tool") return { ...hook };
   return undefined;
 }
 
 /** Finite conversion of the lifecycle surface Codex currently supports. */
-export function codexHooksFromLifeOS(source: unknown): {
+export function codexHooksFromLifeOS(source: unknown, lifeosDir?: string): {
   hooks: CodexHooks;
   unsupportedEvents: string[];
   unsupportedHandlers: number;
@@ -145,7 +150,7 @@ export function codexHooksFromLifeOS(source: unknown): {
       const converted: CodexHook[] = [];
       for (const hookValue of sourceHooks) {
         if (typeof hookValue !== "object" || hookValue === null) continue;
-        const hook = convertHook(hookValue as CodexHook);
+        const hook = convertHook(hookValue as CodexHook, lifeosDir);
         if (hook) converted.push(hook);
         else unsupportedHandlers++;
       }
@@ -261,14 +266,18 @@ export function mergeManagedAgentsBlock(existing: string, managedBody: string): 
     : block;
 }
 
-function managedAgentsBody(skillRoot: string): string {
+function managedAgentsBody(skillRoot: string, lifeosDir: string, configRoot: string): string {
   const template = readFileSync(join(skillRoot, "install", "CLAUDE.template.md"), "utf-8");
+  const routedLifeosDir = resolve(lifeosDir) === resolve(join(configRoot, "LIFEOS"))
+    ? "${CODEX_HOME:-$HOME/.codex}/LIFEOS"
+    : lifeosDir;
   const preamble = [
     "# LifeOS — Codex startup",
     "",
     "Resolve Codex home as `${CODEX_HOME:-$HOME/.codex}`; never pass an unset `$CODEX_HOME` to shell commands.",
-    "Before any work, read `${CODEX_HOME:-$HOME/.codex}/LIFEOS/LIFEOS_SYSTEM_PROMPT.md` and follow it.",
-    "Resolve all `LIFEOS/` paths below relative to `${CODEX_HOME:-$HOME/.codex}`.",
+    `The canonical LifeOS runtime is \`${routedLifeosDir}\`; it may be shared by multiple harness adapters.`,
+    `Before any work, read \`${routedLifeosDir}/LIFEOS_SYSTEM_PROMPT.md\` and follow it.`,
+    `Resolve all \`LIFEOS/\` paths below relative to \`${routedLifeosDir}\`.`,
     "",
   ].join("\n");
   return rewriteCodexPath(`${preamble}${template}`)
@@ -299,10 +308,34 @@ function runTool(tool: string, args: string[]): unknown {
   return stdout ? JSON.parse(stdout) : {};
 }
 
+function prepareLifeosLink(configRoot: string, lifeosDir: string, apply: boolean): { action: string; adapterPath: string; target: string } {
+  const adapterPath = join(configRoot, "LIFEOS");
+  const normalizedAdapter = resolve(adapterPath);
+  const normalizedTarget = resolve(lifeosDir);
+  if (!isAbsolute(lifeosDir) || normalizedTarget === "/") {
+    throw new Error(`unsafe LifeOS root: ${lifeosDir}`);
+  }
+  if (normalizedAdapter === normalizedTarget) {
+    return { action: "adapter-local", adapterPath, target: normalizedTarget };
+  }
+  if (existsSync(adapterPath)) {
+    if (realpathSync(adapterPath) !== normalizedTarget) {
+      throw new Error(`${adapterPath} does not resolve to configured LifeOS root ${normalizedTarget}`);
+    }
+    return { action: "already-linked", adapterPath, target: normalizedTarget };
+  }
+  if (apply) {
+    mkdirSync(normalizedTarget, { recursive: true });
+    symlinkSync(normalizedTarget, adapterPath, "dir");
+  }
+  return { action: apply ? "linked" : "would-link", adapterPath, target: normalizedTarget };
+}
+
 function parseArgs(argv: string[]): {
   configRoot: string;
   configDir: string;
   skillRoot: string;
+  lifeosDir: string;
   apply: boolean;
   allowDev: boolean;
   nativeBackup: boolean;
@@ -312,10 +345,12 @@ function parseArgs(argv: string[]): {
     return index >= 0 && argv[index + 1] && !argv[index + 1].startsWith("--") ? argv[index + 1] : undefined;
   };
   const home = process.env.HOME || homedir();
+  const configRoot = value("--config-root") || process.env.CODEX_HOME || join(home, ".codex");
   return {
-    configRoot: value("--config-root") || process.env.CODEX_HOME || join(home, ".codex"),
+    configRoot,
     configDir: value("--config-dir") || process.env.LIFEOS_CONFIG_DIR || join(home, ".config", "LIFEOS"),
     skillRoot: value("--skill-root") || join(import.meta.dir, ".."),
+    lifeosDir: value("--lifeos-dir") || join(configRoot, "LIFEOS"),
     apply: argv.includes("--apply"),
     allowDev: argv.includes("--allow-dev"),
     nativeBackup: !argv.includes("--no-native-backup"),
@@ -332,20 +367,25 @@ function main(): void {
   const payloadHooksPath = join(args.skillRoot, "install", "hooks", "hooks.json");
   const templatePath = join(args.skillRoot, "install", "CLAUDE.template.md");
   const systemPromptSource = join(args.skillRoot, "install", "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md");
-  if (!existsSync(payloadHooksPath) || !existsSync(templatePath) || !existsSync(systemPromptSource)) {
-    console.log(JSON.stringify({ ok: false, error: "LifeOS install payload is incomplete", payloadHooksPath, templatePath, systemPromptSource }, null, 2));
+  const versionSource = join(args.skillRoot, "install", "LIFEOS", "VERSION");
+  if (!existsSync(payloadHooksPath) || !existsSync(templatePath) || !existsSync(systemPromptSource) || !existsSync(versionSource)) {
+    console.log(JSON.stringify({ ok: false, error: "LifeOS install payload is incomplete", payloadHooksPath, templatePath, systemPromptSource, versionSource }, null, 2));
     process.exit(1);
   }
 
   const payload = JSON.parse(readFileSync(payloadHooksPath, "utf-8"));
-  const converted = codexHooksFromLifeOS(payload.hooks);
+  const converted = codexHooksFromLifeOS(payload.hooks, args.lifeosDir);
+  if (args.apply) mkdirSync(args.configRoot, { recursive: true });
+  const runtimeLink = prepareLifeosLink(args.configRoot, args.lifeosDir, args.apply);
   const report: Record<string, unknown> = {
     ok: true,
     dryRun: !args.apply,
     configRoot: args.configRoot,
     configDir: args.configDir,
+    lifeosDir: args.lifeosDir,
+    runtimeLink,
     userTarget: join(args.configDir, "USER"),
-    managedTargets: ["LIFEOS/", "skills/", "hooks/", "hooks.json", "AGENTS.md", "config.toml"],
+    managedTargets: ["LIFEOS", "skills/", "hooks/", "hooks.json", "AGENTS.md", "config.toml", ".pai-adapter.json"],
     unsupportedEvents: converted.unsupportedEvents,
     unsupportedHandlers: converted.unsupportedHandlers,
   };
@@ -399,11 +439,25 @@ function main(): void {
 
   const agentsPath = join(args.configRoot, "AGENTS.md");
   const existingAgents = existsSync(agentsPath) ? readFileSync(agentsPath, "utf-8") : "";
-  atomicWriteText(agentsPath, mergeManagedAgentsBlock(existingAgents, managedAgentsBody(args.skillRoot)));
+  atomicWriteText(agentsPath, mergeManagedAgentsBlock(existingAgents, managedAgentsBody(args.skillRoot, args.lifeosDir, args.configRoot)));
 
   const configPath = join(args.configRoot, "config.toml");
   const existingConfig = existsSync(configPath) ? readFileSync(configPath, "utf-8") : "";
   atomicWriteText(configPath, upsertHooksFeature(existingConfig));
+
+  const version = readFileSync(versionSource, "utf-8").trim();
+  atomicWriteText(join(args.configRoot, ".pai-adapter.json"), `${JSON.stringify({
+    schemaVersion: 1,
+    harness: "codex",
+    paiVersion: version,
+    lifeosVersion: version,
+    paiDir: args.lifeosDir,
+    lifeosDir: args.lifeosDir,
+    harnessHome: args.configRoot,
+    managedFiles: ["config.toml", "hooks.json", "AGENTS.md", "LIFEOS"],
+    updatedAt: new Date().toISOString(),
+    validation: { status: "valid", checkedAt: new Date().toISOString(), issues: [] },
+  }, null, 2)}\n`);
 
   report.written = true;
   console.log(JSON.stringify(report, null, 2));

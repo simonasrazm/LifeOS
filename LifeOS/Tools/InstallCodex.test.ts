@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -70,6 +70,38 @@ describe("InstallCodex native adapter", () => {
       rmSync(root, { recursive: true, force: true });
     }
   }, 60_000);
+
+  test("keeps harness state local while routing core state through an external neutral root", () => {
+    const root = mkdtempSync(join(tmpdir(), "lifeos-codex-neutral-root-"));
+    const configRoot = join(root, ".codex");
+    const configDir = join(root, "data");
+    const lifeosDir = join(root, ".pai");
+    mkdirSync(join(configDir, "USER"), { recursive: true });
+
+    try {
+      const proc = Bun.spawnSync([
+        "bun", join(import.meta.dir, "InstallCodex.ts"),
+        "--config-root", configRoot,
+        "--config-dir", configDir,
+        "--lifeos-dir", lifeosDir,
+        "--skill-root", join(import.meta.dir, ".."),
+        "--no-native-backup",
+        "--apply",
+      ], { stdout: "pipe", stderr: "pipe" });
+      expect(proc.exitCode).toBe(0);
+      expect(realpathSync(join(configRoot, "LIFEOS"))).toBe(realpathSync(lifeosDir));
+      expect(realpathSync(join(lifeosDir, "USER"))).toBe(realpathSync(join(configDir, "USER")));
+      expect(readFileSync(join(configRoot, "AGENTS.md"), "utf-8")).toContain(`${lifeosDir}/LIFEOS_SYSTEM_PROMPT.md`);
+      expect(readFileSync(join(configRoot, "hooks.json"), "utf-8")).toContain(lifeosDir);
+      const manifest = JSON.parse(readFileSync(join(configRoot, ".pai-adapter.json"), "utf-8"));
+      expect(manifest.paiDir).toBe(lifeosDir);
+      expect(manifest.lifeosVersion).toBe("7.40.4");
+      expect(existsSync(join(root, ".claude"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   test("maps supported events and reports unsupported events", () => {
     const source = {
       SessionStart: [{ hooks: [{ type: "command", command: "$HOME/.claude/hooks/LoadContext.hook.ts" }] }],
