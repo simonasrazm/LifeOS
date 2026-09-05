@@ -402,7 +402,7 @@ The `type` column of `## Test Strategy` accepts a closed vocabulary of probe typ
 | `bash` | `check \| threshold \| tool` | shell command exits 0 / output matches | grep, diff, jq probes |
 | `curl` | `check \| threshold \| tool` | HTTP probe: `curl -i` status/headers/body match | Reachability + contract probes. A bash-family probe kept DISTINCT from `bash` because the Bunker runner classifies cloud-portability by it (`src/synccloud.ts` local-vs-cloud jurisdiction split) — a curl probe can run from the cloud monitor, a general bash probe cannot. Reconciled with Bunker 2026-07-22 (`bunker/src/isa.ts` PROBE_TYPES — private implementation). |
 | `manual` | `check \| tool` | principal-recognizes-on-encounter | Experiential ISCs — design, voice, "feels right" |
-| `screenshot` | `check \| tool` | Interceptor-captured image | UI rendering verification |
+| `screenshot` | `check \| tool` | Image captured by the active real-browser verifier | UI rendering verification |
 | `eval` | `check \| threshold \| tool` | `EvalRunner` suite pass^k ≥ threshold | Behavioral/quality/regression properties one direct probe can't close — voice/disposition survival, skill routing, no-fabrication. The multi-sample class only; elected by judgment like any menu capability, never the default (default = a direct probe). Tool: `bun skills/Evals/Tools/EvalRunner.ts -s <suite>` |
 
 **`bun-property` row shape:**

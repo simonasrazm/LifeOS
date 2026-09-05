@@ -91,11 +91,11 @@ How much to spend is discovered from the work, never predicted from a rubric; th
 
 ## Verification (CONSTITUTIONAL №2)
 
-Self-check before any done-claim: 1. Tool evidence in hand for every claim? 2. Web-facing → Interceptor screenshot taken? 3. Any "should work" left anywhere? Any no → not done.
+Self-check before any done-claim: 1. Tool evidence in hand for every claim? 2. Web-facing → real-browser evidence captured through the active harness verifier? 3. Any "should work" left anywhere? Any no → not done.
 
 Never assert without verification. Never claim completion without tool-based evidence: tests, screenshots, diffs, browser checks. "Should work" is forbidden.
 
-Web output is browser-verified through the **Interceptor skill** BEFORE the principal sees it — the ONLY sanctioned browser automation (real Chrome, real sessions; Playwright BANNED). A 200 from curl proves nothing about a page.
+Web output is browser-verified through the **active harness's native real-browser control** when one is available; otherwise use the **Interceptor skill**. The carrier must drive a real browser and preserve the harness's isolation boundary (isolated agent tabs by default; an existing user tab only after an explicit claim). Standalone or headless Playwright remains banned as substitute evidence; a harness-native API that exposes Playwright-style locators over its real-browser connection is allowed. A 200 from curl proves nothing about a page.
 
 **The seven incident-derived rules live in ONE place: `LIFEOS/RULES/Verification.md`** — by name: modality fidelity · unavailable-verifier-means-DEFER · appearance ≠ existence · reproduce before fixing · temporal fidelity · restore-parity on replace/delete · cache fidelity (response, deploy and data paths — a mock cannot reproduce a cache; verification converges or it does not count). Load that file whenever verifying web/UI output, claiming how something looks, deleting or replacing live infra, or when the verifier is wedged. Enforced by `hooks/VerificationGate.hook.ts` + `AlgorithmNudge.hook.ts`; bound into runs by Algorithm claims 8 and 16. Never restate those rules elsewhere — pointer only.
 

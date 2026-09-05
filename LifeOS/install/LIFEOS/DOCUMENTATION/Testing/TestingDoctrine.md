@@ -319,11 +319,11 @@ When a single Algorithm run spans multiple context windows — Ralph Loop, Maest
 
 They're complementary. An Algorithm run on a complex feature might use both: `bun test` for the code-correctness ISCs, `Skill("Evals")` for the "did the agent answer well" ISCs. Neither replaces the other.
 
-### Relationship to Interceptor
+### Relationship to real-browser verification
 
-`Skill("Interceptor")` is for browser-based UI verification — real Chrome, real screenshots, real DOM. `bun test` is for everything else (CLIs, hooks, library code, ISA workflows, classifier outputs).
+The active harness's native real-browser control is for browser-based UI verification when available; `Skill("Interceptor")` is the fallback carrier. Both provide a real browser, screenshots, and DOM evidence. `bun test` is for everything else (CLIs, hooks, library code, ISA workflows, classifier outputs).
 
-If a test needs to render a webpage and inspect the DOM → Interceptor. Otherwise → `bun test`.
+If a test needs to render a webpage and inspect the DOM → the active real-browser verifier. Otherwise → `bun test`.
 
 ---
 
@@ -375,10 +375,10 @@ The rule is mechanical: the `tool` column starts with `bun test`, so `[ ]` → `
 `bun test` is the default probe, but it isn't the only one — the claim's modality decides which instrument is honest:
 
 - **A pure function** ("slugify is idempotent") → `bun test`. It's code correctness, checked in-process.
-- **A rendered page** ("the toggle flips the theme on a phone viewport") → Interceptor. `bun test` can't see a DOM.
+- **A rendered page** ("the toggle flips the theme on a phone viewport") → the active real-browser verifier. `bun test` can't see a DOM.
 - **An agent's answer quality** ("the summary keeps every key fact") → `Skill("Evals")`. That's judging a transcript, not asserting a return value.
 
-Reaching for `bun test` on a DOM claim, or Interceptor on a pure function, is the wrong instrument — the claim would close on evidence that doesn't actually test it.
+Reaching for `bun test` on a DOM claim, or a real-browser verifier on a pure function, is the wrong instrument — the claim would close on evidence that doesn't actually test it.
 
 ### A criterion becoming verified
 

@@ -284,7 +284,11 @@ function managedAgentsBody(skillRoot: string, lifeosDir: string, configRoot: str
   ].join("\n");
   return rewriteCodexPath(`${preamble}${template}`)
     .replace(/\bCLAUDE\.md\b/g, "AGENTS.md")
-    .replace(/Claude Code/g, "Codex");
+    .replace(/Claude Code/g, "Codex")
+    .replace(
+      '- Browser automation — `Skill("Interceptor")` (real Chrome, mandatory for verification)',
+      '- Browser automation — Codex native browser control (real browser, isolated agent tabs by default); use `Skill("Interceptor")` only when the native surface is unavailable',
+    );
 }
 
 function upsertHooksFeature(content: string): string {

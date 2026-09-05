@@ -59,6 +59,12 @@ describe("InstallCodex native adapter", () => {
       const agents = readFileSync(join(configRoot, "AGENTS.md"), "utf-8");
       expect(agents).toContain("${CODEX_HOME:-$HOME/.codex}/LIFEOS/LIFEOS_SYSTEM_PROMPT.md");
       expect(agents).not.toContain("read `$CODEX_HOME/LIFEOS/LIFEOS_SYSTEM_PROMPT.md`");
+      expect(agents).toContain("Browser automation — Codex native browser control");
+      expect(agents).not.toContain('Browser automation — `Skill("Interceptor")`');
+
+      const systemPrompt = readFileSync(join(configRoot, "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md"), "utf-8");
+      expect(systemPrompt).toContain("active harness's native real-browser control");
+      expect(systemPrompt).toContain("Standalone or headless Playwright remains banned");
 
       const installedHook = join(configRoot, "hooks", "LoadContext.hook.ts");
       const installedSystemPrompt = join(configRoot, "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md");

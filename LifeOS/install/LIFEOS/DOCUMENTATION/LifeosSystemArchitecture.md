@@ -359,7 +359,7 @@ Two storage layers: LifeOS MEMORY (`LIFEOS/MEMORY/`) for structured, hook-driven
 
 **Three distinct agent systems that serve different purposes.**
 
-Task Tool Subagent Types are pre-built agents in Claude Code (Architect, Engineer, Explore, etc.) for internal workflow use. `BrowserAgent`, `UIReviewer`, `QATester`, `Artist`, `Algorithm`, and `Anvil` (Kimi K2.6) were removed 2026-06-10 by principal directive — browser validation runs through the **Interceptor** skill (real Chrome, no CDP fingerprint). Cross-vendor agents extend coverage: **Forge** (OpenAI-family GPT-5.6 Sol via `codex exec`) writes production-grade code in **build mode** and runs the optional cross-vendor **audit mode** in VERIFY when the Algorithm elects it (Algorithm Rule 2a — discretionary, not a mandatory gate; the former standalone Cato agent folded into Forge audit mode 2026-06-17; the E-tier election thresholds retired with the tier system 2026-07-11). Named Agents are persistent identities with backstories and ElevenLabs voices for recurring work. Custom Agents are dynamic compositions via ComposeAgent from base traits. The word "custom" is the routing trigger -- when the user says "custom agents," invoke the Agents skill, never Task tool subagent types. Background agents are supervised by the Agent Watchdog (`Tools/AgentWatchdog.ts`) — a Monitor-tool script that detects hung agents via tool-activity.jsonl silence, auto-triggered by the Pulse agent-guard hook.
+Task Tool Subagent Types are pre-built agents in Claude Code (Architect, Engineer, Explore, etc.) for internal workflow use. `BrowserAgent`, `UIReviewer`, `QATester`, `Artist`, `Algorithm`, and `Anvil` (Kimi K2.6) were removed 2026-06-10 by principal directive — browser validation runs through the active harness's native real-browser control, with the **Interceptor** skill as fallback. Cross-vendor agents extend coverage: **Forge** (OpenAI-family GPT-5.6 Sol via `codex exec`) writes production-grade code in **build mode** and runs the optional cross-vendor **audit mode** in VERIFY when the Algorithm elects it (Algorithm Rule 2a — discretionary, not a mandatory gate; the former standalone Cato agent folded into Forge audit mode 2026-06-17; the E-tier election thresholds retired with the tier system 2026-07-11). Named Agents are persistent identities with backstories and ElevenLabs voices for recurring work. Custom Agents are dynamic compositions via ComposeAgent from base traits. The word "custom" is the routing trigger -- when the user says "custom agents," invoke the Agents skill, never Task tool subagent types. Background agents are supervised by the Agent Watchdog (`Tools/AgentWatchdog.ts`) — a Monitor-tool script that detects hung agents via tool-activity.jsonl silence, auto-triggered by the Pulse agent-guard hook.
 
 - **Status:** Active
 - **Location:** `~/.claude/agents/`
@@ -469,10 +469,10 @@ Formalizes how Pulse instantiates, manages, and evolves a Digital Assistant. Rep
 
 **Interceptor: real Chrome/Brave through a browser extension, zero CDP fingerprint.**
 
-Handles screenshots, multi-step sessions, authenticated browsing, and DOM/console/network inspection through the actual browser UI, so it stays logged in and passes bot detection. Legacy built-in agents (BrowserAgent, UIReviewer, QATester) were removed 2026-06-10, and the headless agent-browser wrapper (the Browser skill) was retired 2026-07-04 in favor of Interceptor. All web-based output MUST be verified through the **Interceptor skill** before showing to the user. Playwright is banned across LifeOS.
+Handles screenshots, multi-step sessions, authenticated browsing, and DOM/console/network inspection through the actual browser UI, so it stays logged in and passes bot detection. Legacy built-in agents (BrowserAgent, UIReviewer, QATester) were removed 2026-06-10, and the headless agent-browser wrapper (the Browser skill) was retired 2026-07-04. LifeOS now binds to the active harness's native real-browser control when available and uses Interceptor as the fallback carrier. Standalone/headless Playwright is banned; Playwright-style locators exposed by a harness-native real-browser connection are allowed.
 
 - **Status:** Active
-- **Location:** `~/.claude/skills/Interceptor/` (real-Chrome automation + computer use, mandatory for verification)
+- **Location:** the active harness's installed Interceptor skill directory (real-Chrome automation + computer use; fallback when native real-browser control is unavailable)
 
 ### Cloud Execution (Arbol)
 
@@ -717,4 +717,3 @@ The running log of the load-bearing choices that shape LifeOS — what we decide
 - **Superseded:** 2026-07-11 — the Router was retired when mode/tier classification (MINIMAL/NATIVE/ALGORITHM, E1–E5) was abolished system-wide. `TheRouter.hook.ts` was deleted; no successor classifier. Only model routing survives (`LIFEOS/TOOLS/models.ts` + `hooks/AgentInvocation.hook.ts`). Entry kept per the append-only convention.
 - **Source:** manual (2026-07-01)
 <!-- ad-src: manual#the-router -->
-
