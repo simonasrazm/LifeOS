@@ -337,11 +337,10 @@ function main(): void {
   if (args.allowDev) common.push("--allow-dev");
   report.deployCore = runTool(join(import.meta.dir, "DeployCore.ts"), common);
 
-  if (!existsSync(join(args.configDir, "USER"))) {
-    report.scaffoldUser = runTool(join(import.meta.dir, "ScaffoldUser.ts"), [...common, "--config-dir", args.configDir]);
-  } else {
-    report.scaffoldUser = { skipped: true, reason: "external USER already exists" };
-  }
+  // ScaffoldUser is additive: copyMissing never overwrites existing USER data.
+  // Always run it so an older populated USER tree receives newly-required
+  // schema paths during upgrades instead of remaining permanently incomplete.
+  report.scaffoldUser = runTool(join(import.meta.dir, "ScaffoldUser.ts"), [...common, "--config-dir", args.configDir]);
   report.linkUser = runTool(join(import.meta.dir, "LinkUser.ts"), ["--config-root", args.configRoot, "--config-dir", args.configDir, "--apply", ...(args.allowDev ? ["--allow-dev"] : [])]);
 
   const hooksCopy = copyMissing(join(args.skillRoot, "install", "hooks"), join(args.configRoot, "hooks"));

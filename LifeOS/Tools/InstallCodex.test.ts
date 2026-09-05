@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -15,6 +16,32 @@ describe("InstallCodex native adapter", () => {
     expect(readFileSync(join(import.meta.dir, "../install/skills/LifeOS/Tools/InstallCodex.ts"), "utf-8"))
       .toBe(readFileSync(join(import.meta.dir, "InstallCodex.ts"), "utf-8"));
   });
+
+  test("adds missing USER schema to a populated external tree without overwriting it", () => {
+    const root = mkdtempSync(join(tmpdir(), "lifeos-codex-user-upgrade-"));
+    const configRoot = join(root, ".codex");
+    const configDir = join(root, "data");
+    const userDir = join(configDir, "USER");
+    mkdirSync(userDir, { recursive: true });
+    writeFileSync(join(userDir, "CONTACTS.md"), "principal-owned\n");
+
+    try {
+      const proc = Bun.spawnSync([
+        "bun", join(import.meta.dir, "InstallCodex.ts"),
+        "--config-root", configRoot,
+        "--config-dir", configDir,
+        "--skill-root", join(import.meta.dir, ".."),
+        "--apply",
+      ], { stdout: "pipe", stderr: "pipe" });
+      expect(proc.exitCode).toBe(0);
+      expect(readFileSync(join(userDir, "CONTACTS.md"), "utf-8")).toBe("principal-owned\n");
+      expect(existsSync(join(userDir, "CONFIG", "OPERATIONAL_RULES.md"))).toBe(true);
+      expect(existsSync(join(userDir, "DIGITAL_ASSISTANT", "DA_IDENTITY.md"))).toBe(true);
+      expect(existsSync(join(userDir, "TELOS", "LIFEOS_STATE.json"))).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 60_000);
   test("maps supported events and reports unsupported events", () => {
     const source = {
       SessionStart: [{ hooks: [{ type: "command", command: "$HOME/.claude/hooks/LoadContext.hook.ts" }] }],
