@@ -155,7 +155,12 @@ function deployRuntime(payloadInstall: string, configRoot: string, apply: boolea
 // to it immediately (ISASync → WORK + STATE, hooks → OBSERVABILITY, memory loop →
 // KNOWLEDGE/LEARNING). Without the tree a fresh install throws on first write. This
 // makes EmitSkill's "MEMORY scaffolded fresh at setup" claim actually true.
-const MEMORY_SUBDIRS = ["WORK", "KNOWLEDGE", "LEARNING", "STATE", "OBSERVABILITY", "SKILLS"];
+const MEMORY_SUBDIRS = [
+  "KNOWLEDGE", "WORK", "LEARNING", "WISDOM", "RESEARCH", "SECURITY",
+  "STATE", "OBSERVABILITY", "VOICE", "VERIFICATION", "TEAMS", "SKILLS",
+  "SYSTEMUPDATES", "PLANS", "REFERENCE", "DATA", "SCRATCHPAD", "PROJECT",
+  "ARCHIVE", "UPGRADES", "PULSE_DATA",
+];
 
 /** (c) MEMORY scaffold: create the empty per-install state dirs (never overwrites). */
 function scaffoldMemory(configRoot: string, apply: boolean): DeployResult {

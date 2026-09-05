@@ -111,6 +111,9 @@ describe("InstallCodex native adapter", () => {
       expect(proc.exitCode).toBe(0);
       expect(realpathSync(join(configRoot, "LIFEOS"))).toBe(realpathSync(lifeosDir));
       expect(realpathSync(join(lifeosDir, "USER"))).toBe(realpathSync(join(configDir, "USER")));
+      for (const directory of ["TEAMS", "SYSTEMUPDATES", "PLANS", "ARCHIVE", "UPGRADES", "PULSE_DATA"]) {
+        expect(existsSync(join(lifeosDir, "MEMORY", directory))).toBe(true);
+      }
       expect(readFileSync(join(configRoot, "AGENTS.md"), "utf-8")).toContain(`${lifeosDir}/LIFEOS_SYSTEM_PROMPT.md`);
       expect(readFileSync(join(configRoot, "hooks.json"), "utf-8")).toContain(lifeosDir);
       const manifest = JSON.parse(readFileSync(join(configRoot, ".pai-adapter.json"), "utf-8"));
