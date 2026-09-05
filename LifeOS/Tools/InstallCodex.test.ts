@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  type CodexHooks,
   codexHooksFromLifeOS,
   mergeCodexHooksDocument,
   mergeManagedAgentsBlock,
@@ -41,6 +42,26 @@ describe("InstallCodex native adapter", () => {
     expect(hook.command).toContain("curl -sS -m 2");
     expect(hook.command).toContain("http://localhost:31337/hooks/skill-guard");
     expect(hook.command).toEndWith("|| true'");
+  });
+
+  test("normalizes existing Claude matchers while preserving custom fields", () => {
+    const result = mergeCodexHooksDocument({
+      custom: { owner: "user" },
+      hooks: {
+        PreToolUse: [{
+          matcher: "Bash|Write|Agent|Skill",
+          customGroup: true,
+          hooks: [{ type: "http", url: "http://localhost:31337/hooks/skill-guard", timeout: 7 }],
+        }],
+      },
+    }, {});
+
+    expect(result.custom).toEqual({ owner: "user" });
+    const group = (result.hooks as CodexHooks).PreToolUse[0];
+    expect(group.matcher).toBe("exec_command|apply_patch|spawn_agent|skill");
+    expect(group.customGroup).toBe(true);
+    expect(group.hooks[0].type).toBe("command");
+    expect(group.hooks[0].timeout).toBe(7);
   });
 
   test("preserves custom AGENTS text and updates one managed block", () => {

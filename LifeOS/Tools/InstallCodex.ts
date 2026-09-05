@@ -202,7 +202,11 @@ export function normalizeExistingCodexHooks(source: unknown): CodexHooks {
             return hook.type === "http" ? (convertHook(hook) ?? { ...hook }) : { ...hook };
           })
         : [];
-      return { ...group, hooks } as CodexHookGroup;
+      return {
+        ...group,
+        matcher: mapMatcher(typeof group.matcher === "string" ? group.matcher : undefined),
+        hooks,
+      } as CodexHookGroup;
     });
   }
   return normalized;
